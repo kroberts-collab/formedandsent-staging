@@ -504,16 +504,16 @@ import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, deleteD
 /* ─────────────────────────────────────────────
    🔧  CONFIG  — paste your existing values here
 ──────────────────────────────────────────────── */
-const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyDpwK7arl0FS6uKnYyAI3O_hgkwM178A9Y",
-    authDomain: "formedandsent.firebaseapp.com",
-    projectId: "formedandsent",
-    storageBucket: "formedandsent.firebasestorage.app",
-    messagingSenderId: "1031066699010",
-    appId: "1:1031066699010:web:617cb6f11fd5139c35ee1b"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyD4zzHMhcHRJd9pcB7jO0NtA4D8y1Vgi1Y",
+  authDomain: "formedandsent-staging.firebaseapp.com",
+  projectId: "formedandsent-staging",
+  storageBucket: "formedandsent-staging.firebasestorage.app",
+  messagingSenderId: "266251831134",
+  appId: "1:266251831134:web:3d349bf5b2fb8b770ff1cf"
+};
 // Your Google Apps Script web app URL (handles Sheets + Classroom)
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHKV-_Un-9xH9c0RRpUdcz7CCsZZYUhnldEgkcJX8bH8rNmT_ZUKdRuYrejhVFGIbbvg/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwS7S-bvgPbNw9zxT3NoqwHejz7QitcajvSlDpNHZPiHPdBOvPl5tbU4RgqHGCCgaJl/exec";
 /* ──────────────────────────────────────────── */
 
 const fbApp = initializeApp(FIREBASE_CONFIG);
