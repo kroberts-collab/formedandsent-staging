@@ -1,0 +1,2733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>formedandsent</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#f7f5f0; --surface:#ffffff; --border:#e8e4dc; --ink:#1a1814;
+    --ink2:#6b6560; --ink3:#a09b94; --accent:#2d6a4f; --accent2:#52b788;
+    --warn:#c9592a; --radius:12px; --shadow:0 2px 12px rgba(0,0,0,.07);
+    --shadow-lg:0 8px 32px rgba(0,0,0,.10);
+    font-family:'DM Sans',sans-serif;
+  }
+  *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink); min-height:100vh; }
+  h1,h2,h3 { font-family:'Lora',serif; }
+  a { color:var(--accent); }
+
+  .hidden { display:none !important; }
+  .mt-sm { margin-top:8px; } .mt-md { margin-top:16px; } .mt-lg { margin-top:24px; }
+
+  .btn { display:inline-flex; align-items:center; gap:8px; padding:10px 20px;
+         border-radius:8px; font-size:.9rem; font-weight:500; cursor:pointer;
+         border:none; transition:all .15s; font-family:inherit; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover:not(:disabled) { background:#235c43; }
+  .btn-secondary { background:var(--surface); color:var(--ink); border:1.5px solid var(--border); }
+  .btn-secondary:hover:not(:disabled) { background:var(--bg); }
+  .btn-ghost { background:transparent; color:var(--ink2); border:1.5px solid var(--border); padding:7px 14px; font-size:.85rem; }
+  .btn-ghost:hover { background:var(--bg); }
+  .btn-danger { background:#fdf0ec; color:var(--warn); border:1.5px solid #f5c9bb; }
+  .btn-danger:hover { background:#fbe0d6; }
+  .btn-google { background:#fff; color:#3c4043; border:1.5px solid #dadce0; font-size:1rem; padding:12px 24px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+  .btn-google:hover { background:#f8f9fa; box-shadow:0 2px 8px rgba(0,0,0,.12); }
+  .btn-icon { background:transparent; color:var(--ink3); border:none; padding:4px 8px; cursor:pointer; font-size:1rem; border-radius:6px; }
+  .btn-icon:hover { background:var(--bg); color:var(--warn); }
+
+  #landing {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(145deg,#e8f4ee 0%,#f7f5f0 50%,#fdf6ee 100%);
+  }
+  .landing-card {
+    background:var(--surface); border-radius:20px; padding:56px 64px;
+    box-shadow:var(--shadow-lg); text-align:center; max-width:440px; width:90%;
+    border:1px solid var(--border);
+  }
+  .logo-mark {
+    width:56px; height:56px; background:var(--accent); border-radius:14px;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:1.6rem; margin-bottom:20px;
+  }
+  .landing-card h1 { font-size:2rem; margin-bottom:8px; }
+  .landing-tagline { color:var(--ink2); font-size:1rem; margin-bottom:32px; line-height:1.5; }
+  .divider { border:none; border-top:1px solid var(--border); margin:24px 0; }
+  .signin-hint { font-size:.8rem; color:var(--ink3); margin-top:16px; }
+
+  #app { display:none; flex-direction:column; min-height:100vh; }
+  .topbar { height:60px; background:var(--surface); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; padding:0 24px; gap:16px; position:sticky; top:0; z-index:100; }
+  .topbar-logo { font-family:'Lora',serif; font-size:1.1rem; font-weight:600; color:var(--accent); }
+  .topbar-spacer { flex:1; }
+  .topbar-role { font-size:.75rem; background:#e8f4ee; color:var(--accent); padding:3px 10px; border-radius:20px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .user-pill { display:flex; align-items:center; gap:8px; }
+  .user-pill img { width:30px; height:30px; border-radius:50%; object-fit:cover; background:var(--border); }
+  .user-pill span { font-size:.9rem; color:var(--ink2); }
+
+  .app-body { display:flex; flex:1; }
+  .sidebar {
+    width:220px; background:var(--surface); border-right:1px solid var(--border);
+    padding:24px 12px; display:flex; flex-direction:column; gap:4px;
+    position:sticky; top:60px; height:calc(100vh - 60px); overflow-y:auto;
+  }
+  .nav-item {
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    border-radius:8px; font-size:.9rem; color:var(--ink2); cursor:pointer;
+    transition:all .12s; border:none; background:transparent; font-family:inherit; text-align:left; width:100%;
+  }
+  .nav-item:hover { background:var(--bg); color:var(--ink); }
+  .nav-item.active { background:#e8f4ee; color:var(--accent); font-weight:600; }
+  .nav-section { font-size:.72rem; color:var(--ink3); padding:12px 14px 4px; text-transform:uppercase; letter-spacing:.07em; font-weight:600; }
+  .main-content { flex:1; padding:32px; max-width:900px; }
+
+  .page-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:28px; gap:16px; flex-wrap:wrap; }
+  .page-title { font-size:1.8rem; margin-bottom:4px; }
+  .page-sub { color:var(--ink2); font-size:.95rem; }
+  .card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px; transition:box-shadow .15s,transform .15s; }
+  .card:hover { box-shadow:var(--shadow); transform:translateY(-2px); }
+  .card-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .tag { font-size:.75rem; font-weight:600; padding:3px 10px; border-radius:20px; background:#e8f4ee; color:var(--accent); }
+  .tag.blue { background:#e8f0fb; color:#2563eb; }
+  .tag.amber { background:#fef3e2; color:#d97706; }
+  .tag.purple { background:#f3e8fd; color:#7c3aed; }
+  .tag.draft { background:#fef3e2; color:#d97706; }
+  .card-title { font-family:'Lora',serif; font-size:1.05rem; margin-bottom:6px; }
+  .card-excerpt { font-size:.85rem; color:var(--ink2); line-height:1.5; margin-bottom:14px; }
+  .card-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .card-meta { font-size:.8rem; color:var(--ink3); margin-bottom:8px; }
+
+  .form-page { max-width:720px; }
+  .back-btn { background:none; border:none; color:var(--accent); cursor:pointer; font-size:.9rem; margin-bottom:20px; padding:0; font-family:inherit; }
+  .back-btn:hover { text-decoration:underline; }
+  .field-label { display:block; font-size:.85rem; font-weight:600; color:var(--ink2); margin-bottom:6px; margin-top:20px; }
+  .field-label:first-of-type { margin-top:24px; }
+  .field-input,.field-textarea,.field-select {
+    width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:8px;
+    font-size:.95rem; font-family:inherit; background:var(--surface); color:var(--ink);
+    transition:border .15s; outline:none;
+  }
+  .field-input:focus,.field-textarea:focus,.field-select:focus { border-color:var(--accent); }
+  .field-textarea { resize:vertical; line-height:1.6; }
+  .field-hint { font-size:.8rem; color:var(--ink3); margin-top:4px; }
+  .field-row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  .field-row > div { flex:1; min-width:140px; }
+  .question-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .q-num { font-size:.85rem; color:var(--ink3); min-width:20px; }
+  .q-input { flex:1; padding:8px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem; font-family:inherit; outline:none; }
+  .q-input:focus { border-color:var(--accent); }
+  .q-rounds { width:auto; padding:8px 8px; border:1.5px solid var(--border); border-radius:8px; font-size:.85rem; font-family:inherit; outline:none; background:var(--surface); }
+  .form-actions { display:flex; gap:12px; margin-top:32px; flex-wrap:wrap; }
+  .class-checkboxes { display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+  .class-checkbox { display:flex; align-items:center; gap:10px; padding:10px 14px; border:1.5px solid var(--border); border-radius:8px; cursor:pointer; transition:border .12s; }
+  .class-checkbox:hover { border-color:var(--accent2); }
+  .class-checkbox input { accent-color:var(--accent); width:16px; height:16px; }
+  .class-checkbox label { cursor:pointer; font-size:.92rem; }
+
+  .type-picker { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .type-card { border:2px solid var(--border); border-radius:var(--radius); padding:18px; cursor:pointer; transition:all .15s; background:var(--surface); }
+  .type-card:hover { border-color:var(--accent2); }
+  .type-card.selected { border-color:var(--accent); background:#e8f4ee; }
+  .type-card h3 { font-size:1rem; margin-bottom:6px; }
+  .type-card p { font-size:.83rem; color:var(--ink2); line-height:1.5; }
+
+  .stories-wrap {
+    background:#fdfcf8; border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px 24px; margin-top:16px;
+  }
+  .stories-wrap-header {
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:12px;
+  }
+  .stories-wrap-header h3 { font-size:1.05rem; color:var(--accent); }
+
+  .story-block {
+    background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius);
+    padding:16px 20px; margin-top:12px;
+  }
+  .story-block summary {
+    cursor:pointer; font-weight:600; font-size:.95rem; padding:4px 0; outline:none;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    list-style:none;
+  }
+  .story-block summary::-webkit-details-marker { display:none; }
+  .story-block summary::before {
+    content:"▸"; color:var(--ink3); transition:transform .15s; display:inline-block;
+  }
+  .story-block[open] summary::before { transform:rotate(90deg); }
+  .summary-content { flex:1; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .summary-actions { display:flex; gap:6px; }
+  .branch-count-pill {
+    font-size:.72rem; font-weight:600; padding:2px 9px; border-radius:20px;
+    background:#f3e8fd; color:#7c3aed; margin-left:6px;
+  }
+  .branch-count-pill.zero { background:var(--bg); color:var(--ink3); }
+
+  .branches-inside {
+    background:linear-gradient(180deg, #f5f3ee 0%, #f7f5f0 100%);
+    border:1.5px dashed #d4d0c5; border-radius:var(--radius);
+    padding:18px 20px; margin-top:20px;
+  }
+  .branches-inside-header {
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;
+    gap:12px; flex-wrap:wrap;
+  }
+  .branches-inside-header h4 {
+    font-size:1rem; color:var(--accent); font-family:'Lora',serif;
+    display:flex; align-items:center; gap:8px;
+  }
+  .branches-inside-hint {
+    font-size:.82rem; color:var(--ink3); margin-bottom:12px; line-height:1.5;
+  }
+  .add-branch-btn {
+    background:var(--accent); color:#fff; border:none;
+    padding:8px 16px; border-radius:8px; font-size:.85rem; font-weight:500;
+    cursor:pointer; font-family:inherit; transition:background .15s;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .add-branch-btn:hover { background:#235c43; }
+
+  .learnmore-block {
+    background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius);
+    padding:14px 18px; margin-top:10px;
+  }
+  .learnmore-block summary {
+    cursor:pointer; font-weight:600; font-size:.9rem; padding:2px 0; outline:none;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    list-style:none;
+  }
+  .learnmore-block summary::-webkit-details-marker { display:none; }
+  .learnmore-block summary::before {
+    content:"▸"; color:var(--ink3); transition:transform .15s; display:inline-block;
+  }
+  .learnmore-block[open] summary::before { transform:rotate(90deg); }
+
+  .no-branches-placeholder {
+    text-align:center; padding:16px; color:var(--ink3); font-size:.85rem;
+    font-style:italic;
+  }
+
+  .assignment-view { max-width:720px; }
+  .progress-bar-wrap { background:var(--border); border-radius:99px; height:6px; margin-bottom:28px; overflow:hidden; }
+  .progress-bar-fill { height:100%; background:var(--accent); border-radius:99px; transition:width .4s ease; }
+  .passage-box {
+    background:#fdfcf8; border:1px solid var(--border); border-radius:var(--radius);
+    padding:28px 32px; margin-bottom:24px; line-height:1.8; font-family:'Lora',serif;
+    font-size:1rem; color:var(--ink); max-height:420px; overflow-y:auto;
+  }
+  .question-box { background:var(--surface); border:1.5px solid var(--accent2); border-radius:var(--radius); padding:20px 24px; margin-bottom:16px; }
+  .question-label { font-size:.78rem; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+  .question-text { font-family:'Lora',serif; font-size:1.05rem; line-height:1.6; }
+  .answer-area { width:100%; min-height:100px; padding:14px; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem; font-family:inherit; resize:vertical; transition:border .15s; outline:none; }
+  .answer-area:focus { border-color:var(--accent); }
+  .ai-response {
+    background:#f0f7f4; border-left:3px solid var(--accent); border-radius:0 8px 8px 0;
+    padding:16px 20px; margin:16px 0; font-size:.95rem; line-height:1.7; color:var(--ink);
+    animation:fadeIn .3s ease;
+  }
+  .ai-label { font-size:.75rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .typing-dots span {
+    display:inline-block; width:6px; height:6px; background:var(--accent); border-radius:50%;
+    margin:0 2px; animation:bounce .9s infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay:.15s; }
+  .typing-dots span:nth-child(3) { animation-delay:.3s; }
+  @keyframes bounce { 0%,80%,100% { transform:translateY(0); } 40% { transform:translateY(-6px); } }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  .exchange-block { margin-bottom:16px; }
+  .student-prior-answer {
+    background:var(--bg); padding:10px 14px; border-radius:8px;
+    font-size:.9rem; margin-bottom:8px; color:var(--ink2);
+    border-left:3px solid var(--ink3);
+  }
+  .followup-input-block {
+    background:var(--surface); border:1.5px solid var(--accent2); border-radius:var(--radius);
+    padding:18px 20px; margin-top:16px; margin-bottom:16px;
+    animation:fadeIn .3s ease;
+  }
+  .followup-prompt {
+    font-size:.82rem; font-weight:600; color:var(--accent);
+    margin-bottom:8px; text-transform:uppercase; letter-spacing:.04em;
+  }
+
+  /* AUTOSAVE indicator */
+  .autosave-pill {
+    position:fixed; top:72px; right:24px; z-index:200;
+    background:var(--surface); border:1px solid var(--border);
+    padding:6px 12px; border-radius:20px; font-size:.78rem;
+    color:var(--ink2); display:flex; align-items:center; gap:6px;
+    box-shadow:var(--shadow); opacity:0; transition:opacity .25s;
+    pointer-events:none;
+  }
+  .autosave-pill.show { opacity:1; }
+  .autosave-pill.saving { color:var(--ink3); }
+  .autosave-pill.saved { color:var(--accent); }
+  .autosave-pill.error { color:var(--warn); border-color:#f5c9bb; }
+  .autosave-pill .dot {
+    width:6px; height:6px; border-radius:50%; background:currentColor;
+  }
+  .autosave-pill.saving .dot { animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:.3}50%{opacity:1} }
+
+  /* Resume prompt modal */
+  .resume-card {
+    text-align:center; max-width:520px; margin:60px auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:20px;
+    padding:40px 36px; box-shadow:var(--shadow-lg);
+  }
+  .resume-card h2 { margin-bottom:10px; }
+  .resume-card .resume-stats {
+    background:var(--bg); border-radius:10px; padding:14px 18px; margin:18px 0;
+    font-size:.9rem; color:var(--ink2); line-height:1.6;
+  }
+  .resume-card .resume-stats strong { color:var(--accent); }
+  .resume-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:20px; }
+
+  .prompt-layer-box {
+    border:1.5px solid var(--border); border-radius:var(--radius); padding:14px 16px;
+    margin-top:10px; background:var(--surface);
+  }
+  .prompt-layer-header {
+    display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;
+  }
+  .prompt-layer-label { font-weight:600; font-size:.9rem; color:var(--ink); }
+  .prompt-layer-controls { display:flex; gap:6px; margin-left:auto; flex-wrap:wrap; }
+  .prompt-layer-select { padding:7px 10px; border:1.5px solid var(--border); border-radius:6px; font-size:.9rem; background:var(--surface); font-family:inherit; min-width:200px; }
+  .prompt-multi-select { border:1.5px solid var(--border); border-radius:6px; padding:8px 10px; background:var(--surface); max-height:180px; overflow-y:auto; }
+  .prompt-multi-select label { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:.88rem; cursor:pointer; }
+  .prompt-multi-select label input { accent-color:var(--accent); }
+  .prompt-preview {
+    background:#fdfcf8; border:1px dashed var(--border); border-radius:6px;
+    padding:10px 14px; margin-top:8px; font-size:.85rem; color:var(--ink2);
+    max-height:200px; overflow-y:auto; line-height:1.5; white-space:pre-wrap;
+  }
+  .prompt-preview-toggle {
+    background:none; border:none; color:var(--accent); cursor:pointer;
+    font-size:.82rem; padding:0; font-family:inherit;
+  }
+  .prompt-preview-toggle:hover { text-decoration:underline; }
+  .prompt-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px 20px; margin-bottom:12px;
+  }
+  .prompt-card-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+  .prompt-card-title { font-family:'Lora',serif; font-size:1rem; }
+  .prompt-card-layer-tag { font-size:.7rem; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.05em; }
+  .prompt-card-layer-tag.layer1 { background:#e8f0fb; color:#2563eb; }
+  .prompt-card-layer-tag.layer2 { background:#e8f4ee; color:var(--accent); }
+  .prompt-card-layer-tag.layer3 { background:#fef3e2; color:#d97706; }
+  .prompt-card-body { font-size:.88rem; color:var(--ink2); line-height:1.6; white-space:pre-wrap; max-height:90px; overflow:hidden; position:relative; }
+  .prompt-card-body.expanded { max-height:none; }
+  .prompt-card-fade { position:absolute; bottom:0; left:0; right:0; height:30px; background:linear-gradient(transparent, var(--surface)); pointer-events:none; }
+  .prompt-card-actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .builtin-badge { font-size:.7rem; color:var(--ink3); margin-left:6px; font-style:italic; }
+
+  .story-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:18px; }
+  .story-card {
+    background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius);
+    overflow:hidden; cursor:pointer; transition:all .15s; display:flex; flex-direction:column;
+  }
+  .story-card:hover { border-color:var(--accent2); transform:translateY(-3px); box-shadow:var(--shadow); }
+  .story-card.completed { opacity:.65; }
+  .story-img-wrap { width:100%; aspect-ratio:16/10; background:#e8f4ee; overflow:hidden; position:relative; }
+  .story-img-wrap img { width:100%; height:100%; object-fit:cover; }
+  .story-img-placeholder {
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    font-size:2.5rem; color:var(--accent);
+  }
+  .story-card-body { padding:16px 18px; flex:1; display:flex; flex-direction:column; }
+  .story-card-title { font-family:'Lora',serif; font-size:1.05rem; margin-bottom:6px; }
+  .story-card-meta { font-size:.8rem; color:var(--ink3); margin-top:auto; padding-top:8px; }
+  .story-status-badge {
+    position:absolute; top:10px; right:10px; background:var(--accent); color:#fff;
+    font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:.04em;
+  }
+
+  .branch-picker-card {
+    background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius);
+    padding:18px 22px; margin-bottom:12px; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:16px;
+  }
+  .branch-picker-card:hover { border-color:var(--accent2); transform:translateX(4px); }
+  .branch-picker-card.completed { opacity:.6; }
+  .branch-icon { width:42px; height:42px; background:#e8f4ee; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; color:var(--accent); }
+  .branch-body { flex:1; }
+  .branch-title { font-family:'Lora',serif; font-size:1rem; margin-bottom:3px; }
+  .branch-desc { font-size:.85rem; color:var(--ink3); }
+
+  .completion-card { text-align:center; max-width:500px; margin:60px auto; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:48px 40px; box-shadow:var(--shadow-lg); }
+  .completion-icon { font-size:3rem; margin-bottom:16px; }
+  .completion-card h2 { margin-bottom:8px; }
+  .completion-card p { color:var(--ink2); line-height:1.6; margin-bottom:24px; }
+
+  .responses-table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  .responses-table th { text-align:left; padding:10px 14px; font-size:.78rem; font-weight:700; color:var(--ink2); text-transform:uppercase; letter-spacing:.05em; border-bottom:2px solid var(--border); }
+  .responses-table td { padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .responses-table tr:last-child td { border-bottom:none; }
+  .responses-table tr:hover td { background:var(--bg); }
+  .responses-table tr.draft td { background:#fdfcf5; }
+  .responses-table tr.draft:hover td { background:#f5f0e8; }
+  .expand-btn { background:none; border:none; color:var(--accent); cursor:pointer; font-size:.85rem; font-family:inherit; padding:0; }
+  .expand-btn:hover { text-decoration:underline; }
+
+  .empty-state { text-align:center; padding:60px 20px; color:var(--ink3); }
+  .empty-state .empty-icon { font-size:2.5rem; margin-bottom:12px; }
+  .empty-state p { font-size:.95rem; }
+  .loading-spinner { width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; margin:40px auto; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  #toast {
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+    background:#1a1814; color:#fff; padding:12px 20px; border-radius:8px;
+    font-size:.9rem; z-index:9999; transition:transform .25s; max-width:340px; text-align:center;
+  }
+  #toast.show { transform:translateX(-50%) translateY(0); }
+  #toast.error { background:var(--warn); }
+
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:500; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .modal { background:var(--surface); border-radius:16px; padding:32px; max-width:560px; width:100%; box-shadow:var(--shadow-lg); max-height:90vh; overflow-y:auto; }
+  .modal h2 { margin-bottom:16px; }
+  .modal-actions { display:flex; gap:12px; margin-top:24px; justify-content:flex-end; }
+
+  .student-home { max-width:680px; }
+  .student-home h1 { margin-bottom:6px; }
+  .welcome-sub { color:var(--ink2); margin-bottom:28px; }
+  .assignment-student-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px 24px; margin-bottom:12px; display:flex; align-items:center; gap:16px;
+    transition:box-shadow .15s; cursor:pointer;
+  }
+  .assignment-student-card:hover { box-shadow:var(--shadow); }
+  .asc-icon { width:44px; height:44px; background:#e8f4ee; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; }
+  .asc-body { flex:1; }
+  .asc-title { font-family:'Lora',serif; font-size:1rem; margin-bottom:3px; }
+  .asc-meta { font-size:.82rem; color:var(--ink3); }
+  .status-badge { font-size:.75rem; font-weight:600; padding:3px 10px; border-radius:20px; }
+  .status-badge.done { background:#e8f4ee; color:var(--accent); }
+  .status-badge.todo { background:#fef3e2; color:#d97706; }
+  .status-badge.partial { background:#e8f0fb; color:#2563eb; }
+
+  .journey-progress {
+    display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;
+    background:var(--surface); padding:12px 16px; border-radius:var(--radius); border:1px solid var(--border);
+    font-size:.85rem; align-items:center;
+  }
+  .journey-progress strong { color:var(--accent); }
+
+  /* Live indicator for draft responses */
+  .live-dot {
+    width:7px; height:7px; border-radius:50%; background:#d97706;
+    display:inline-block; animation:pulse 1.5s infinite;
+    margin-right:6px;
+  }
+
+  /* Error state for responses loading */
+  .error-state {
+    text-align:center; padding:40px 20px; color:var(--warn);
+  }
+  .error-state .error-icon {
+    font-size:2.5rem; margin-bottom:12px;
+  }
+
+  /* Debug info panel */
+  .debug-panel {
+    background:#1a1814; color:#52b788; font-family:monospace;
+    padding:16px; border-radius:8px; margin-top:20px;
+    font-size:.8rem; max-height:200px; overflow-y:auto;
+    white-space:pre-wrap; word-break:break-all;
+  }
+
+  @media (max-width:640px) {
+    .sidebar { display:none; }
+    .main-content { padding:20px 16px; }
+    .landing-card { padding:36px 24px; }
+    .passage-box { padding:18px; }
+    .type-picker { grid-template-columns:1fr; }
+    .autosave-pill { top:auto; bottom:80px; right:16px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="landing">
+  <div class="landing-card">
+    <div class="logo-mark">📖</div>
+    <h1>formedandsent</h1>
+    <p class="landing-tagline">AI-powered reading assignments with personalised Socratic feedback for every student.</p>
+    <hr class="divider"/>
+    <button class="btn btn-google" onclick="signIn()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.3 0 6.2 1.2 8.5 3.1l6.3-6.3C34.9 2.9 29.8 1 24 1 14.8 1 7 6.6 3.7 14.4l7.4 5.7C12.7 14 17.9 9.5 24 9.5z"/><path fill="#4285F4" d="M46.6 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.5 2.9-2.2 5.4-4.7 7l7.3 5.7c4.3-4 6.8-9.9 6.8-16.7z"/><path fill="#FBBC05" d="M11.1 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.1.8-4.6L2.9 13.7A23 23 0 0 0 1 24c0 3.7.9 7.2 2.5 10.3l7.6-5.7z"/><path fill="#34A853" d="M24 47c6 0 11-2 14.7-5.3l-7.3-5.7c-2 1.4-4.6 2.2-7.4 2.2-6.1 0-11.3-4.1-13.1-9.7L3.3 34c3.2 7.8 11 13 20.7 13z"/></svg>
+      Sign in with Google
+    </button>
+    <p class="signin-hint">Use your school Google account</p>
+  </div>
+</div>
+
+<div id="app">
+  <header class="topbar">
+    <span class="topbar-logo">📖 formedandsent</span>
+    <span class="topbar-spacer"></span>
+    <span class="topbar-role" id="topbar-role">Student</span>
+    <div class="user-pill">
+      <img id="user-avatar" src="" alt="avatar"/>
+      <span id="user-name"></span>
+    </div>
+    <button class="btn btn-ghost" onclick="signOutUser()" style="padding:6px 12px;font-size:.82rem;">Sign out</button>
+  </header>
+
+  <div class="app-body">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="main-content" id="main-content">
+      <div class="loading-spinner"></div>
+    </main>
+  </div>
+</div>
+
+<div id="autosave-pill" class="autosave-pill"><span class="dot"></span><span id="autosave-text">Saved</span></div>
+
+<div id="toast"></div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, updateDoc,
+         serverTimestamp, query, where }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+/* ─────────────────────────────────────────────
+   🔧  CONFIG  — paste your existing values here
+──────────────────────────────────────────────── */
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDpwK7arl0FS6uKnYyAI3O_hgkwM178A9Y",
+    authDomain: "formedandsent.firebaseapp.com",
+    projectId: "formedandsent",
+    storageBucket: "formedandsent.firebasestorage.app",
+    messagingSenderId: "1031066699010",
+    appId: "1:1031066699010:web:617cb6f11fd5139c35ee1b"
+  };
+// Your Google Apps Script web app URL (handles Sheets + Classroom)
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHKV-_Un-9xH9c0RRpUdcz7CCsZZYUhnldEgkcJX8bH8rNmT_ZUKdRuYrejhVFGIbbvg/exec";
+/* ──────────────────────────────────────────── */
+
+const fbApp = initializeApp(FIREBASE_CONFIG);
+const auth  = getAuth(fbApp);
+const db    = getFirestore(fbApp);
+const gp = new GoogleAuthProvider();
+gp.setCustomParameters({ prompt: "select_account" });
+
+const gpTeacher = new GoogleAuthProvider();
+gpTeacher.addScope("https://www.googleapis.com/auth/classroom.coursework.students");
+gpTeacher.addScope("https://www.googleapis.com/auth/classroom.courses.readonly");
+
+let user=null, role=null, gToken=null;
+let curAssignment=null;
+let session=[];
+let qIndex=0;
+let followUpRound=0;
+let MAX_ROUNDS_FOR_Q=5;
+let journey={};
+let autosaveTimer=null;
+
+const $  = id => document.getElementById(id);
+const mc = () => $("main-content");
+
+function toast(msg, isError=false) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = isError ? "error show" : "show";
+  setTimeout(()=> t.className="", 3000);
+}
+
+function escapeHTML(s) { return (s||"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
+function normaliseImageURL(url) {
+  if (!url) return "";
+  url = url.trim();
+  const m = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/);
+  if (m) return`https://drive.google.com/thumbnail?id=${m[1]}&sz=w800`;
+  return url;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DEBUG HELPERS
+═══════════════════════════════════════════════════════════ */
+function logDebug(label, data) {
+  const timestamp = new Date().toLocaleTimeString();
+  console.log(`[${timestamp}] ${label}:`, data);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTOSAVE & LIVE RESPONSE SYNC
+═══════════════════════════════════════════════════════════ */
+function progressDocId(assignmentId) { return`${user.uid}_${assignmentId}`; }
+
+function responseDocId(assignmentId) { return`${user.uid}_${assignmentId}`; }
+
+function showAutosavePill(state, text) {
+  const pill = $("autosave-pill");
+  const txt  = $("autosave-text");
+  if (!pill || !txt) return;
+  pill.className =`autosave-pill show ${state}`;
+  txt.textContent = text;
+  if (state === "saved" || state === "error") {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(()=> pill.className = "autosave-pill", 1800);
+  }
+}
+function hideAutosavePill() {
+  const pill = $("autosave-pill");
+  if (pill) pill.className = "autosave-pill";
+}
+
+async function saveProgress() {
+  if (!user || !curAssignment) return;
+  showAutosavePill("saving", "Saving…");
+  try {
+    await setDoc(doc(db,"progress", progressDocId(curAssignment.id)), {
+      studentId:       user.uid,
+      studentName:     user.displayName,
+      studentEmail:    user.email,
+      assignmentId:    curAssignment.id,
+      assignmentTitle: curAssignment.title,
+      teacherId:       curAssignment.teacherId,
+      session,
+      journey: curAssignment.type === "branching" ? journey : null,
+      qIndex,
+      followUpRound,
+      type: curAssignment.type,
+      lastUpdated: serverTimestamp()
+    }, { merge:true });
+    showAutosavePill("saved", "Saved ✓");
+  } catch(e) {
+    console.warn("autosave failed:", e);
+    showAutosavePill("error", "Save failed");
+  }
+}
+
+/**
+ * savePartialResponse — writes/updates the student's current work
+ * to the responses collection so teachers can see progress live.
+ */
+async function savePartialResponse() {
+  if (!user || !curAssignment || session.length === 0) return;
+  try {
+    const payload = {
+      assignmentId:    curAssignment.id,
+      assignmentTitle: curAssignment.title,
+      studentId:       user.uid,
+      studentName:     user.displayName,
+      studentEmail:    user.email,
+      teacherId:       curAssignment.teacherId,
+      session: session,
+      journey: curAssignment.type === "branching" ? journey : null,
+      isDraft: true,
+      lastSavedAt:     serverTimestamp()
+    };
+    await setDoc(doc(db, "responses", responseDocId(curAssignment.id)), payload, { merge: true });
+    logDebug("Partial response saved", { assignmentId: curAssignment.id, exchanges: session.length });
+  } catch(e) {
+    console.warn("partial response save failed:", e);
+  }
+}
+
+/**
+ * cleanUpPartialResponse — removes the draft flag when assignment is fully submitted
+ */
+async function cleanUpPartialResponse() {
+  if (!user || !curAssignment) return;
+  try {
+    await updateDoc(doc(db, "responses", responseDocId(curAssignment.id)), {
+      isDraft: false,
+      submittedAt: serverTimestamp(),
+      lastSavedAt: serverTimestamp()
+    });
+  } catch(e) {
+    console.warn("cleanup partial response failed:", e);
+  }
+}
+
+async function loadProgress(assignmentId) {
+  try {
+    const snap = await getDoc(doc(db,"progress",`${user.uid}_${assignmentId}`));
+    return snap.exists() ? snap.data() : null;
+  } catch(e) { console.warn("loadProgress:", e); return null; }
+}
+
+async function deleteProgress(assignmentId) {
+  try {
+    await deleteDoc(doc(db,"progress",`${user.uid}_${assignmentId}`));
+  } catch(e) { console.warn("deleteProgress:", e); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROMPT LIBRARY
+═══════════════════════════════════════════════════════════ */
+const BUILTIN_PROMPTS = {
+  layer1: [
+    {
+      id: "builtin-l1-standard",
+      name: "Standard Global Baseline",
+      builtin: true,
+      text: "You are a coach speaking directly to the student. Use second-person voice — \"you noticed\", \"your answer\", \"what do you think\" — never refer to them in third person.\n\nKeep responses short: 2-4 sentences max. Long responses overwhelm students and signal you're taking over the work. One good question is often enough.\n\nSpeak warmly and directly. Be like a thoughtful older sibling — interested, honest, not chatty, not cold, not performative. Do not say \"praise God\" or \"amen\" or use language that sounds performative.\n\nStay within historic, mainstream orthodox Christian theology. The Bible is the inspired, authoritative Word of God. Jesus is fully God and fully human. Humans are made in God's image and affected by sin. Salvation is by grace through faith in Jesus Christ. Do not introduce theological controversies (e.g., Calvinism vs. Arminianism) at this level.\n\nDo not write the student's answer for them. Do not grade. Do not lecture. If you find yourself writing more than four sentences, stop and ask a question instead."
+    }
+  ],
+  layer2: [
+    {
+      id: "builtin-l2-bible-socratic",
+      name: "Bible Study - Socratic",
+      builtin: true,
+      text: "You are guiding the student through close reading of a Scripture passage. Ask more than you tell.\n\nWhen the student gives a surface answer, don't give them the deeper answer — ask a question that helps them find it. Point them back to specific verses: \"Where in the text do you see that?\" \"Which words made you think of that?\"\n\nWelcome wrestling. \"I don't get it\" is an opportunity. Push past polished Sunday-school answers gently: \"That's a familiar answer — is it your honest one right now?\"\n\nIf they ask you to give them the answer, redirect with warmth: \"I won't write it for you, but I'll help you sharpen what you write. Give me one try, even if you're not sure.\""
+    },
+    {
+      id: "builtin-l2-misreadings",
+      name: "Common Misreadings Coach",
+      builtin: true,
+      text: "Help the student notice where readers commonly misinterpret this passage. Don't tell them the mistake — surface it through questions.\n\nWhen they accept a common misreading without thinking, gently press: \"That's how most people read it. Read verse __ again. Does the text actually say that, or are we filling in?\"\n\nHonor textual evidence above intuition. If their reading depends on something the text doesn't say, ask: \"Show me the line that says that. Are we adding to the passage, or reading what's there?\"\n\nCelebrate it specifically when they catch themselves making an assumption the text doesn't support."
+    },
+    {
+      id: "builtin-l2-cultural-context",
+      name: "Cultural & Historical Context",
+      builtin: true,
+      text: "Help the student understand how the original audience would have heard this. You can share specific cultural/historical context when it directly illuminates the text, but always tie it back to a question.\n\nExample: \"In the culture Jesus was speaking to, an older man running was shameful — dignified men didn't run. So when the father runs to his son, he's giving up dignity to get there faster. What does that tell you about him?\"\n\nDon't lecture about the ancient world. One context point per response, then a question. Keep the student doing the interpretive work."
+    },
+    {
+      id: "builtin-l2-application",
+      name: "Application & Reflection",
+      builtin: true,
+      text: "Help the student locate themselves honestly in the passage. There is no single right answer — you are listening for honest self-reflection, not a particular conclusion.\n\nWatch for the polished safe answer (\"I'm forgiven like the younger brother\"). Gently press past it: \"That's true, but it's the easy one. What about [the harder identification]?\"\n\nIf they identify something genuinely hard about themselves, affirm the courage of that observation — without lecturing or piling on more reflection.\n\nHelp them get specific. Not \"be more loving\" but \"stop holding [specific resentment] toward [specific person].\" Specificity is where application becomes real."
+    },
+    {
+      id: "builtin-l2-comprehension",
+      name: "Comprehension Check",
+      builtin: true,
+      text: "Check that the student has understood what the text actually says (before moving to interpretation). Focus on factual recall and basic comprehension.\n\nIf they get a fact wrong, don't just correct — point them back: \"Read verse __ again. What does it actually say?\"\n\nIf they get the basics right, advance quickly. Don't drag a comprehension question into a full Socratic deep-dive — that's not what this question is for. Affirm and advance."
+    },
+    {
+      id: "builtin-l2-vocabulary",
+      name: "Vocabulary & Language",
+      builtin: true,
+      text: "Help the student wrestle with specific words and phrases in the text. When they use a key term, ask what they think it means before defining it.\n\nIf they ask what a word means, give a real answer — but follow with a question: \"It means [definition]. Now — which character in this story does that word actually fit?\"\n\nHelp them see that words in Scripture often have layers (e.g., \"prodigal\" = wasteful, not just sinful). Surface those layers through their own noticing."
+    },
+    {
+      id: "builtin-l2-compare",
+      name: "Compare & Contrast",
+      builtin: true,
+      text: "Help the student notice what's similar and different between two passages, characters, or ideas. Push past surface comparisons to the meaningful ones.\n\n\"What's similar? What's different?\" — and then: \"What does the difference tell you?\" The contrast is where the meaning often lives.\n\nIf they only notice one side (the obvious comparison), redirect: \"What's something the two share that's easy to miss?\""
+    },
+    {
+      id: "builtin-l2-worldview",
+      name: "Worldview Analysis",
+      builtin: true,
+      text: "Help the student see what the text assumes — about God, humans, the world, what matters. Surface the worldview behind the words.\n\n\"What does this passage take for granted?\" \"What would have to be true for this to make sense?\"\n\nIf they assume a modern Western worldview when reading, gently surface it: \"We tend to read this as being about [individual]. Could it be about something bigger? What if the audience heard it as being about [community]?\"\n\nDo not turn this into an academic exercise. The goal is honest noticing, not lecture."
+    }
+  ],
+  layer3: []
+};
+
+let _promptCache = null;
+
+async function loadPromptLibrary() {
+  if (_promptCache) return _promptCache;
+  const lib = { layer1:[], layer2:[], layer3:[] };
+  const hiddenBuiltins = new Set();
+  try {
+    const snp = await getDocs(query(collection(db,"prompts"), where("teacherId","==",user.uid)));
+    snp.forEach(d => {
+      const p = { id:d.id, ...d.data() };
+      if (p.hiddenBuiltinId) {
+        hiddenBuiltins.add(p.hiddenBuiltinId);
+      } else if (lib[p.layer]) {
+        lib[p.layer].push(p);
+      }
+    });
+  } catch(e) { console.warn("loadPromptLibrary:", e); }
+  ["layer1","layer2","layer3"].forEach(layer => {
+    BUILTIN_PROMPTS[layer].forEach(bp => {
+      if (!hiddenBuiltins.has(bp.id)) lib[layer].unshift(bp);
+    });
+  });
+  _promptCache = lib;
+  return lib;
+}
+
+function invalidatePromptCache() { _promptCache = null; }
+
+async function savePromptToLibrary(layer, name, text, existingId) {
+  const data = { layer, name, text, teacherId:user.uid, updatedAt: serverTimestamp() };
+  if (existingId && !existingId.startsWith("builtin-")) {
+    await setDoc(doc(db,"prompts",existingId), data, { merge:true });
+  } else {
+    data.createdAt = serverTimestamp();
+    await addDoc(collection(db,"prompts"), data);
+  }
+  invalidatePromptCache();
+}
+
+async function deletePromptFromLibrary(id, isBuiltin, builtinId, layer) {
+  if (isBuiltin) {
+    await addDoc(collection(db,"prompts"), {
+      teacherId:user.uid, layer, hiddenBuiltinId:builtinId, createdAt:serverTimestamp()
+    });
+  } else {
+    await deleteDoc(doc(db,"prompts",id));
+  }
+  invalidatePromptCache();
+}
+
+async function renderPromptLayerSelector(containerId, layer, multiSelect, currentValue) {
+  const lib = await loadPromptLibrary();
+  const items = lib[layer] || [];
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const layerNames = {
+    layer1: "Layer 1 · Global Baseline",
+    layer2: "Layer 2 · Preset Approach",
+    layer3: "Layer 3 · Assignment-Specific Notes"
+  };
+  const layerHints = {
+    layer1: "Foundational rules — tone, length, theology. Usually the same across all assignments.",
+    layer2: "The pedagogical approach for this assignment. Pick one or combine several.",
+    layer3: "Notes specific to THIS assignment (watch-points, what to push on)."
+  };
+
+  let html = `<div class="prompt-layer-box" data-layer="${layer}">
+    <div class="prompt-layer-header">
+      <div>
+        <div class="prompt-layer-label">${layerNames[layer]}</div>
+        <p class="field-hint" style="margin:2px 0 0">${layerHints[layer]}</p>
+      </div>
+      <div class="prompt-layer-controls">
+        <button type="button" class="btn btn-ghost" onclick="openPromptEditor('${layer}', null, '${containerId}')" style="padding:5px 10px;font-size:.8rem">+ Add new</button>
+      </div>
+    </div>`;
+
+  if (multiSelect) {
+    const selectedIds = Array.isArray(currentValue) ? currentValue : [];
+    html +=`<div class="prompt-multi-select" id="${containerId}-checks">`;
+    if (items.length === 0) {
+      html +=`<p style="color:var(--ink3);font-size:.85rem">No options yet. Click "Add new" to create one.</p>`;
+    } else {
+      items.forEach(p => {
+        const checked = selectedIds.includes(p.id) ? "checked" : "";
+        html += `<label>
+          <input type="checkbox" value="${p.id}" ${checked} onchange="updateLayerPreview('${containerId}')"/>
+          <span>${escapeHTML(p.name)}${p.builtin?'<span class="builtin-badge">(built-in)</span>':''}</span>
+          <button type="button" class="prompt-preview-toggle" style="margin-left:auto" onclick="event.preventDefault();openPromptEditor('${layer}', '${p.id}', '${containerId}', ${p.builtin?'true':'false'})">edit</button>
+        </label>`;
+      });
+    }
+    html +=`</div>`;
+  } else {
+    const selectedId = currentValue || (items[0]?.id || "");
+    html +=`<select class="prompt-layer-select" id="${containerId}-select" onchange="updateLayerPreview('${containerId}')" style="width:100%;max-width:none">`;
+    if (layer === "layer3") html +=`<option value="">— None —</option>`;
+    items.forEach(p => {
+      const selected = p.id === selectedId ? "selected" : "";
+      html +=`<option value="${p.id}" ${selected}>${escapeHTML(p.name)}${p.builtin?' (built-in)':''}</option>`;
+    });
+    html +=`</select>`;
+    html += `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" style="padding:5px 10px;font-size:.8rem" onclick="editSelectedPrompt('${layer}','${containerId}')">✏️ Edit selected</button>
+    </div>`;
+  }
+
+  html += `<button type="button" class="prompt-preview-toggle mt-sm" onclick="togglePromptPreview('${containerId}')">▾ Show combined preview</button>
+    <div class="prompt-preview hidden" id="${containerId}-preview"></div>
+  </div>`;
+
+  container.innerHTML = html;
+  updateLayerPreview(containerId);
+}
+
+window.togglePromptPreview = (containerId) => {
+  const pv = document.getElementById(`${containerId}-preview`);
+  if (pv) pv.classList.toggle("hidden");
+};
+
+window.updateLayerPreview = async (containerId) => {
+  const lib = await loadPromptLibrary();
+  const checks = document.getElementById(`${containerId}-checks`);
+  const select = document.getElementById(`${containerId}-select`);
+  let combined = "";
+  if (checks) {
+    const ids = Array.from(checks.querySelectorAll("input:checked")).map(c=>c.value);
+    const allItems = [...lib.layer1, ...lib.layer2, ...lib.layer3];
+    combined = ids.map(id => allItems.find(p=>p.id===id)?.text || "").filter(Boolean).join("\n\n");
+  } else if (select) {
+    const id = select.value;
+    const allItems = [...lib.layer1, ...lib.layer2, ...lib.layer3];
+    combined = allItems.find(p=>p.id===id)?.text || "";
+  }
+  const pv = document.getElementById(`${containerId}-preview`);
+  if (pv) pv.textContent = combined || "(nothing selected)";
+};
+
+window.editSelectedPrompt = (layer, containerId) => {
+  const select = document.getElementById(`${containerId}-select`);
+  if (!select || !select.value) { toast("Nothing to edit.", true); return; }
+  const isBuiltin = select.value.startsWith("builtin-");
+  openPromptEditor(layer, select.value, containerId, isBuiltin);
+};
+
+window.openPromptEditor = async (layer, promptId, containerId, isBuiltin) => {
+  const lib = await loadPromptLibrary();
+  const existing = promptId ? (lib[layer] || []).find(p => p.id === promptId) : null;
+  const isB = existing?.builtin || isBuiltin === true || isBuiltin === "true";
+  const layerName = { layer1:"Global Baseline", layer2:"Preset Approach", layer3:"Assignment-Specific Notes" }[layer];
+
+  // Ensure promptId is null for new prompts (not string "null")
+  const safePromptId = promptId === "null" ? null : promptId;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-overlay" id="prompt-editor-modal" onclick="if(event.target.id==='prompt-editor-modal')closePromptEditor()">
+      <div class="modal">
+        <h2>${safePromptId ? "Edit" : "New"} Prompt</h2>
+        <p style="color:var(--ink3);font-size:.85rem;margin-bottom:16px">Layer: ${layerName}</p>
+        ${isB ?`<p style="background:#e8f0fb;color:#2563eb;padding:8px 12px;border-radius:6px;font-size:.85rem;margin-bottom:14px">📌 Built-in prompt. Editing creates a new copy — the original stays available.</p>` : ""}
+        <label class="field-label" style="margin-top:0">Name</label>
+        <input id="pe-name" class="field-input" value="${escapeHTML(existing?.name || "")}" placeholder="e.g. Bible Study Socratic v2"/>
+        <label class="field-label">Prompt Text</label>
+        <textarea id="pe-text" class="field-textarea" rows="12" placeholder="Type the prompt instructions…">${escapeHTML(existing?.text || "")}</textarea>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closePromptEditor()">Cancel</button>
+          ${(existing && !isB) ?`<button class="btn btn-primary" onclick="savePromptEdit('${layer}','${safePromptId || ""}','${containerId}',false)">Update existing</button>` : ""}
+          <button class="btn btn-primary" onclick="savePromptEdit('${layer}','${safePromptId || ""}','${containerId}',true)">${safePromptId ? "Save as new" : "Save"}</button>
+        </div>
+      </div>
+    </div>`);
+};
+
+window.closePromptEditor = () => {
+  const m = document.getElementById("prompt-editor-modal");
+  if (m) m.remove();
+};
+
+window.savePromptEdit = async (layer, promptId, containerId, asNew) => {
+  const name = document.getElementById("pe-name").value.trim();
+  const text = document.getElementById("pe-text").value.trim();
+  if (!name || !text) { toast("Name and text are required.", true); return; }
+
+  // FIX: treat string "null", empty string, or actual null as no ID (comes from inline handler)
+  const actualPromptId = (promptId === "null" || promptId === "" || promptId === null || promptId === undefined) ? null : promptId;
+
+  logDebug("savePromptEdit", { layer, promptId, actualPromptId, asNew, name, textLength: text.length });
+
+  try {
+    if (!asNew && actualPromptId && !actualPromptId.startsWith("builtin-")) {
+      await savePromptToLibrary(layer, name, text, actualPromptId);
+      toast("Prompt updated ✓");
+    } else {
+      await savePromptToLibrary(layer, name, text, null);
+      toast("Prompt saved ✓");
+    }
+  } catch (err) {
+    console.error("savePromptEdit error:", err);
+    toast("Failed to save: " + err.message, true);
+    return;
+  }
+
+  closePromptEditor();
+  if (containerId === "_library_") {
+    renderPromptLibrary();
+  } else {
+    const checks = document.getElementById(`${containerId}-checks`);
+    const multi = !!checks;
+    let currentValue = null;
+    if (multi) {
+      currentValue = Array.from(checks.querySelectorAll("input:checked")).map(c=>c.value);
+    } else {
+      const sel = document.getElementById(`${containerId}-select`);
+      currentValue = sel?.value;
+    }
+    await renderPromptLayerSelector(containerId, layer, multi, currentValue);
+  }
+};
+
+window.renderPromptLibrary = async () => {
+  setActiveNav("nav-prompts");
+  mc().innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Prompts Library</h1><p class="page-sub">Reusable AI tutor instruction templates</p></div>
+    </div>
+    <div id="library-content"><div class="loading-spinner"></div></div>`;
+
+  invalidatePromptCache();
+  const lib = await loadPromptLibrary();
+  const cont = document.getElementById("library-content");
+
+  const layerInfo = [
+    { key:"layer1", title:"Layer 1 · Global Baseline", desc:"Foundational rules — tone, length, theology", tag:"layer1" },
+    { key:"layer2", title:"Layer 2 · Preset Approaches", desc:"Pedagogical templates for different question types", tag:"layer2" },
+    { key:"layer3", title:"Layer 3 · Assignment-Specific Notes", desc:"Saved notes from past assignments you can reuse", tag:"layer3" }
+  ];
+
+  let html = "";
+  layerInfo.forEach(layer => {
+    const items = lib[layer.key] || [];
+    html += `<div style="margin-bottom:36px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap">
+          <div>
+            <h2 style="font-size:1.2rem;margin-bottom:2px">${layer.title}</h2>
+            <p style="color:var(--ink3);font-size:.88rem">${layer.desc}</p>
+          </div>
+          <button class="btn btn-primary" onclick="openPromptEditor('${layer.key}', null, '_library_')">+ Add</button>
+        </div>`;
+    if (items.length === 0) {
+      html +=`<p style="color:var(--ink3);font-style:italic;font-size:.9rem">No prompts in this layer yet.</p>`;
+    } else {
+      items.forEach(p => {
+        html += `<div class="prompt-card">
+          <div class="prompt-card-top">
+            <div>
+              <span class="prompt-card-title">${escapeHTML(p.name)}</span>
+              ${p.builtin?'<span class="builtin-badge">built-in</span>':""}
+            </div>
+            <span class="prompt-card-layer-tag ${layer.tag}">${layer.key.replace("layer","L")}</span>
+          </div>
+          <div class="prompt-card-body" id="pc-body-${p.id}">${escapeHTML(p.text)}<div class="prompt-card-fade"></div></div>
+          <div class="prompt-card-actions">
+            <button class="btn btn-ghost" onclick="toggleCardBody('${p.id}')">Show full</button>
+            <button class="btn btn-ghost" onclick="openPromptEditor('${layer.key}','${p.id}','_library_',${p.builtin?'true':'false'})">${p.builtin?'Edit (creates copy)':'✏️ Edit'}</button>
+            ${!p.builtin?`<button class="btn btn-ghost btn-danger" onclick="deletePrompt('${p.id}', false, '', '${layer.key}')">🗑 Delete</button>`:`<button class="btn btn-ghost btn-danger" onclick="deletePrompt('','true','${p.id}','${layer.key}')">🗑 Hide</button>`}
+          </div>
+        </div>`;
+      });
+    }
+    html +=`</div>`;
+  });
+  cont.innerHTML = html;
+};
+
+window.toggleCardBody = (id) => {
+  const body = document.getElementById(`pc-body-${id}`);
+  if (!body) return;
+  body.classList.toggle("expanded");
+  const fade = body.querySelector(".prompt-card-fade");
+  if (fade) fade.style.display = body.classList.contains("expanded") ? "none" : "block";
+};
+
+window.deletePrompt = async (id, isBuiltin, builtinId, layer) => {
+  const isB = (isBuiltin === true || isBuiltin === "true");
+  const msg = isB ? "Hide this built-in prompt from your library?" : "Delete this prompt permanently?";
+  if (!confirm(msg)) return;
+  await deletePromptFromLibrary(id, isB, builtinId, layer);
+  renderPromptLibrary();
+  toast(isB ? "Hidden." : "Deleted.");
+};
+
+async function resolvePromptSelection(layer, value) {
+  const lib = await loadPromptLibrary();
+  const items = lib[layer] || [];
+  if (Array.isArray(value)) {
+    return value.map(id => items.find(p=>p.id===id)?.text || "").filter(Boolean).join("\n\n");
+  } else {
+    const found = items.find(p=>p.id===value);
+    return found?.text || "";
+  }
+}
+
+window.signIn = async () => {
+  try {
+    await signInWithPopup(auth, gp);
+    gToken = null;
+  } catch(e) { toast(e.message, true); }
+};
+window.signOutUser = async () => { await signOut(auth); };
+
+onAuthStateChanged(auth, async u => {
+  user = u;
+  if (!u) { showLanding(); return; }
+  const snap = await getDoc(doc(db, "users", u.uid));
+  if (snap.exists()) {
+    role = snap.data().role;
+  } else {
+    role = "student";
+    await setDoc(doc(db, "users", u.uid), {
+      name:u.displayName, email:u.email, role:"student", createdAt:serverTimestamp()
+    });
+  }
+  bootApp();
+});
+
+function showLanding() { $("landing").style.display="flex"; $("app").style.display="none"; }
+
+function bootApp() {
+  $("landing").style.display="none";
+  $("app").style.display="flex";
+  $("user-name").textContent = user.displayName.split(" ")[0];
+  $("user-avatar").src = user.photoURL || "";
+  $("topbar-role").textContent = role==="teacher" ? "Teacher" : "Student";
+  buildSidebar();
+  if (role==="teacher") renderTeacherHome();
+  else renderStudentHome();
+}
+
+function buildSidebar() {
+  const sb = $("sidebar");
+  if (role==="teacher") {
+    sb.innerHTML = `
+      <span class="nav-section">Teacher</span>
+      <button class="nav-item active" id="nav-assignments" onclick="renderTeacherHome()">📋 Assignments</button>
+      <button class="nav-item" id="nav-prompts" onclick="renderPromptLibrary()">🧠 Prompts</button>
+      <button class="nav-item" id="nav-responses" onclick="renderAllResponses()">📊 Responses</button>`;
+  } else {
+    sb.innerHTML = `
+      <span class="nav-section">Student</span>
+      <button class="nav-item active" onclick="renderStudentHome()">🏠 My Assignments</button>`;
+  }
+}
+function setActiveNav(id) {
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+  const el = $(id); if (el) el.classList.add("active");
+}
+
+/* ═══════════════════════════════════════════════
+   TEACHER — HOME
+═══════════════════════════════════════════════ */
+async function renderTeacherHome() {
+  setActiveNav("nav-assignments");
+  hideAutosavePill();
+  mc().innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Assignments</h1><p class="page-sub">Create and manage AI-powered reading tasks</p></div>
+      <button class="btn btn-primary" onclick="renderTypePicker()">+ New Assignment</button>
+    </div>
+    <div id="asgn-grid"><div class="loading-spinner"></div></div>`;
+
+  const q = query(collection(db,"assignments"), where("teacherId","==",user.uid));
+  const snp = await getDocs(q);
+  const grid = $("asgn-grid");
+  if (snp.empty) {
+    grid.innerHTML =`<div class="empty-state"><div class="empty-icon">📄</div><p>No assignments yet. Create your first one!</p></div>`;
+    return;
+  }
+  grid.className = "card-grid";
+  grid.innerHTML = "";
+  snp.forEach(d => {
+    const a = d.data();
+    const isBranching = a.type === "branching";
+    const branchCount = isBranching
+      ? (a.stories || []).reduce((sum, s) => sum + (s.branches || []).length, 0)
+      : 0;
+    const summary = isBranching
+      ?`${(a.stories||[]).length} stories · ${branchCount} branches total`
+      :`${(a.questions||[]).length} questions`;
+    grid.innerHTML += `
+      <div class="card">
+        <div class="card-top">
+          <span class="tag ${isBranching?'purple':''}">${isBranching ? '🌿 Branching' : (a.subject||'Linear')}</span>
+          <span style="font-size:.8rem;color:var(--ink3)">${summary}</span>
+        </div>
+        <p class="card-title">${escapeHTML(a.title)}</p>
+        <p class="card-excerpt">${escapeHTML((a.passage||a.intro||"").substring(0,90))}…</p>
+        <p class="card-meta">Posted to: ${(a.classNames||[]).join(", ")||"No classes"}</p>
+        <div class="card-actions">
+          <button class="btn btn-ghost" onclick="renderResponses('${d.id}','${a.title.replace(/'/g,"\\'")}')">📊 Responses</button>
+          <button class="btn btn-ghost" onclick="renderEditAssignment('${d.id}')">✏️ Edit</button>
+          <button class="btn btn-ghost" onclick="duplicateAssignment('${d.id}')">🔁 Duplicate</button>
+          <button class="btn btn-danger btn-ghost" onclick="deleteAssignment('${d.id}')">🗑</button>
+        </div>
+      </div>`;
+  });
+}
+
+window.renderTypePicker = () => {
+  mc().innerHTML = `
+    <button class="back-btn" onclick="renderTeacherHome()">← Back</button>
+    <h1 class="page-title">New Assignment</h1>
+    <p class="page-sub" style="margin-bottom:24px">Pick the format that fits your lesson</p>
+    <div class="type-picker">
+      <div class="type-card" onclick="renderCreateAssignment(null,null,'linear')">
+        <h3>📄 Linear</h3>
+        <p>One passage, students answer questions in order. Best for a single text you want everyone to read.</p>
+      </div>
+      <div class="type-card" onclick="renderCreateAssignment(null,null,'branching')">
+        <h3>🌿 Branching (Choose Your Own)</h3>
+        <p>Multiple stories to choose from. Each story can have its own optional "Learn More" branches.</p>
+      </div>
+    </div>`;
+};
+
+async function renderCreateAssignment(id, data, type) {
+  const d = data || {};
+  type = type || d.type || "linear";
+  const classes = await fetchTeacherClasses();
+  if (type === "branching") return renderBranchingForm(id, d, classes);
+  return renderLinearForm(id, d, classes);
+}
+
+function renderLinearForm(id, d, classes) {
+  const questions = d.questions || [{ text:"", maxRounds:5 }];
+  const normalized = questions.map(q => typeof q === "string" ? { text:q, maxRounds:5 } : q);
+
+  mc().innerHTML = `
+    <div class="form-page">
+      <button class="back-btn" onclick="renderTeacherHome()">← Back</button>
+      <h1 class="page-title">${id ? "Edit" : "New"} Linear Assignment</h1>
+      <p class="page-sub" style="margin-bottom:8px">📄 Single passage, sequential questions</p>
+
+      <input type="hidden" id="f-type" value="linear"/>
+
+      <label class="field-label">Title *</label>
+      <input id="f-title" class="field-input" value="${escapeHTML(d.title||'')}" placeholder="e.g. The Water Cycle — Reading Response"/>
+
+      <label class="field-label">Subject Tag</label>
+      <input id="f-subject" class="field-input" value="${escapeHTML(d.subject||'')}" placeholder="e.g. Science, English, History…"/>
+
+      <label class="field-label">Reading Passage *</label>
+      <textarea id="f-passage" class="field-textarea" rows="9" placeholder="Paste the article or passage here…">${escapeHTML(d.passage||'')}</textarea>
+
+      <label class="field-label">Questions <span style="color:var(--ink3);font-weight:400">(students answer each in turn)</span></label>
+      <div id="q-container">
+        ${normalized.map((q,i)=>linearQuestionRow(i,q.text,q.maxRounds)).join("")}
+      </div>
+      <button class="btn btn-ghost mt-sm" onclick="addLinearQuestion()">+ Add Question</button>
+
+      <label class="field-label">AI Tutor Instructions</label>
+      <p class="field-hint" style="margin-bottom:10px">Build the AI tutor's instructions in three layers. Each layer is optional except where noted.</p>
+      <div id="prompt-l1"></div>
+      <div id="prompt-l2"></div>
+      <div id="prompt-l3"></div>
+
+      <label class="field-label">Post to Google Classroom Classes</label>
+      ${renderClassCheckboxes(classes, d.classIds||[])}
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="renderTeacherHome()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveLinear('${id||""}')">${id ? "Save Changes" : "Publish"}</button>
+      </div>
+    </div>`;
+
+  const promptCfg = d.promptCfg || {};
+  renderPromptLayerSelector("prompt-l1", "layer1", false, promptCfg.layer1);
+  renderPromptLayerSelector("prompt-l2", "layer2", true,  promptCfg.layer2 || []);
+  renderPromptLayerSelector("prompt-l3", "layer3", false, promptCfg.layer3);
+}
+
+function linearQuestionRow(i, val="", rounds=5) {
+  const opts = [1,2,3,4,5].map(n =>`<option value="${n}" ${rounds==n?'selected':''}>${n} round${n>1?'s':''}</option>`).join("");
+  return `<div class="question-row" id="qrow-${i}">
+    <span class="q-num">${i+1}.</span>
+    <input class="q-input" id="q-${i}" value="${escapeHTML(val)}" placeholder="Question ${i+1}…"/>
+    <select class="q-rounds" id="qr-${i}" title="Max coaching rounds">${opts}</select>
+    <button class="btn-icon" onclick="removeLinearQuestion(${i})" title="Remove">✕</button>
+  </div>`;
+}
+window.addLinearQuestion = () => {
+  const c = $("q-container");
+  c.insertAdjacentHTML("beforeend", linearQuestionRow(c.children.length));
+};
+window.removeLinearQuestion = i => { const el=$(`qrow-${i}`); if(el) el.remove(); };
+
+window.saveLinear = async (existingId) => {
+  const title   = $("f-title").value.trim();
+  const passage = $("f-passage").value.trim();
+  if (!title || !passage) { toast("Title and passage are required.", true); return; }
+
+  const qs = [];
+  document.querySelectorAll(".q-input").forEach((inp,idx) => {
+    const t = inp.value.trim();
+    if (t) {
+      const r = parseInt(document.querySelectorAll(".q-rounds")[idx].value, 10) || 5;
+      qs.push({ text:t, maxRounds:r });
+    }
+  });
+  if (!qs.length) { toast("Add at least one question.", true); return; }
+
+  const l1sel = document.getElementById("prompt-l1-select");
+  const l2checks = document.getElementById("prompt-l2-checks");
+  const l3sel = document.getElementById("prompt-l3-select");
+  const promptCfg = {
+    layer1: l1sel?.value || "",
+    layer2: l2checks ? Array.from(l2checks.querySelectorAll("input:checked")).map(c=>c.value) : [],
+    layer3: l3sel?.value || ""
+  };
+  const resolvedInstructions = [
+    await resolvePromptSelection("layer1", promptCfg.layer1),
+    await resolvePromptSelection("layer2", promptCfg.layer2),
+    await resolvePromptSelection("layer3", promptCfg.layer3)
+  ].filter(Boolean).join("\n\n");
+
+  const { classIds, classNames } = readClassChecks();
+  const payload = {
+    type:"linear", title, passage,
+    subject:      $("f-subject").value.trim(),
+    questions:    qs,
+    promptCfg,
+    instructions: resolvedInstructions,
+    classIds, classNames,
+    teacherId:    user.uid,
+    teacherName:  user.displayName,
+    updatedAt:    serverTimestamp()
+  };
+  await commonSaveAndPost(existingId, payload);
+};
+
+/* ────────────────────────────────────────────
+   BRANCHING FORM — branches live inside their story
+──────────────────────────────────────────── */
+function renderBranchingForm(id, d, classes) {
+  const stories = (d.stories || []).length ? d.stories : [emptyStory(0)];
+  const reqStories = d.requiredStories ?? Math.min(1, stories.length);
+
+  mc().innerHTML = `
+    <div class="form-page">
+      <button class="back-btn" onclick="renderTeacherHome()">← Back</button>
+      <h1 class="page-title">${id ? "Edit" : "New"} Branching Assignment</h1>
+      <p class="page-sub" style="margin-bottom:8px">🌿 Multiple stories, each with its own optional "Learn More" branches</p>
+
+      <input type="hidden" id="f-type" value="branching"/>
+
+      <label class="field-label">Title *</label>
+      <input id="f-title" class="field-input" value="${escapeHTML(d.title || '')}" placeholder="e.g. Parables of Jesus — Choose Your Story"/>
+
+      <label class="field-label">Subject Tag</label>
+      <input id="f-subject" class="field-input" value="${escapeHTML(d.subject || '')}" placeholder="e.g. Religious Studies"/>
+
+      <label class="field-label">Intro for Students (optional)</label>
+      <textarea id="f-intro" class="field-textarea" rows="3" placeholder="Brief intro shown to students before they pick a story…">${escapeHTML(d.intro || '')}</textarea>
+
+      <label class="field-label">Default AI Tutor Instructions</label>
+      <p class="field-hint" style="margin-bottom:10px">Used unless a story or branch overrides it.</p>
+      <div id="prompt-l1"></div>
+      <div id="prompt-l2"></div>
+      <div id="prompt-l3"></div>
+
+      <div class="stories-wrap">
+        <div class="stories-wrap-header">
+          <h3>📚 Stories</h3>
+          <button class="btn btn-ghost" onclick="addStory()">+ Add Story</button>
+        </div>
+        <p class="field-hint" style="margin-bottom:4px">Each story has its own questions. You can optionally add "Learn More" branches inside each story — students who finish that story's questions will see only that story's branches.</p>
+        <div id="stories-container">
+          ${stories.map((s, i) => storyBlock(i, s)).join("")}
+        </div>
+        <div class="field-row mt-md">
+          <div>
+            <label class="field-label" style="margin-top:0">Stories required to complete</label>
+            <select id="f-required-stories" class="field-select">
+              ${[1, 2, 3, 4, 5, 6, 7, 8].map(n =>`<option value="${n}" ${n == reqStories ? 'selected' : ''}>${n} stor${n === 1 ? 'y' : 'ies'}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <p class="field-hint mt-sm">Branch requirements are set inside each story.</p>
+      </div>
+
+      <label class="field-label">Post to Google Classroom Classes</label>
+      ${renderClassCheckboxes(classes, d.classIds || [])}
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="renderTeacherHome()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveBranching('${id || ""}')">${id ? "Save Changes" : "Publish"}</button>
+      </div>
+    </div>`;
+
+  const promptCfg = d.promptCfg || {};
+  renderPromptLayerSelector("prompt-l1", "layer1", false, promptCfg.layer1);
+  renderPromptLayerSelector("prompt-l2", "layer2", true, promptCfg.layer2 || []);
+  renderPromptLayerSelector("prompt-l3", "layer3", false, promptCfg.layer3);
+}
+
+function emptyStory(i) {
+  return {
+    id:`s${Date.now()}_${i}`,
+    title: "",
+    imageUrl: "",
+    passage: "",
+    instructions: "",
+    branches: [],
+    requiredBranches: 0,
+    questions: [{ text: "", maxRounds: 5 }]
+  };
+}
+
+function emptyBranch(i) {
+  return {
+    id:`b${Date.now()}_${i}`,
+    title: "",
+    description: "",
+    passage: "",
+    instructions: "",
+    questions: [{ text: "", maxRounds: 5 }]
+  };
+}
+
+function storyBlock(idx, s) {
+  const branches = s.branches || [];
+  const branchPill = branches.length === 0
+    ?`<span class="branch-count-pill zero">No branches</span>`
+    :`<span class="branch-count-pill">${branches.length} branch${branches.length>1?'es':''}</span>`;
+  const reqBr = s.requiredBranches ?? 0;
+  const branchReqOptions = [];
+  for (let n = 0; n <= Math.max(branches.length, 5); n++) {
+    const label = n === 0 ? "0 — branches are optional (student can skip)" :`${n} branch${n>1?'es':''} required`;
+    branchReqOptions.push(`<option value="${n}" ${n == reqBr ? 'selected' : ''}>${label}</option>`);
+  }
+
+  return`<details class="story-block" id="story-${idx}" data-id="${s.id || `s${Date.now()}_${idx}`}" open>
+    <summary>
+      <span class="summary-content">📖 <span class="story-title-preview">Story ${idx + 1}${s.title ? ": " + escapeHTML(s.title) : ""}</span>${branchPill}</span>
+      <span class="summary-actions"><button class="btn-icon" onclick="event.stopPropagation();removeStory(${idx})" title="Remove">✕</button></span>
+    </summary>
+    <div style="margin-top:12px">
+      <label class="field-label" style="margin-top:8px">Story Title *</label>
+      <input class="field-input s-title" value="${escapeHTML(s.title || '')}" placeholder="e.g. The Prodigal Son" oninput="updateStoryTitle(${idx}, this.value)"/>
+
+      <label class="field-label">Image URL (Google Drive share link, Wikipedia, etc.)</label>
+      <input class="field-input s-image" value="${escapeHTML(s.imageUrl || '')}" placeholder="https://drive.google.com/file/d/.../view"/>
+      <p class="field-hint">Paste any public image URL. For Google Drive: right-click image in Drive → Share → Anyone with link → copy URL.</p>
+
+      <label class="field-label">Passage *</label>
+      <textarea class="field-textarea s-passage" rows="6" placeholder="Paste the story or passage…">${escapeHTML(s.passage || '')}</textarea>
+
+      <label class="field-label">Questions</label>
+      <div class="s-questions">
+        ${(s.questions || [{ text: "", maxRounds: 5 }]).map((q, qi) => qRow("s", idx, qi, q.text, q.maxRounds)).join("")}
+      </div>
+      <button class="btn btn-ghost mt-sm" onclick="addQ('s', ${idx})">+ Add Question</button>
+
+      <label class="field-label">AI Override (optional)</label>
+      <textarea class="field-textarea s-instructions" rows="3" placeholder="Leave blank to use default AI instructions">${escapeHTML(s.instructions || '')}</textarea>
+
+      <!-- BRANCHES FOR THIS STORY -->
+      <div class="branches-inside" id="nested-branches-${idx}">
+        <div class="branches-inside-header">
+          <h4>🔍 "Learn More" Branches for This Story</h4>
+          <button type="button" class="add-branch-btn" onclick="addNestedBranch(${idx})">+ Add Branch to This Story</button>
+        </div>
+        <p class="branches-inside-hint">Optional. Only students who finish <strong>this story's</strong> base questions will see these branches. Branches from other stories will not show here.</p>
+
+        <div class="nested-branches-list" id="branches-list-${idx}">
+          ${branches.length === 0
+            ?`<div class="no-branches-placeholder">No branches yet for this story. Click "Add Branch to This Story" above to create one.</div>`
+            : branches.map((b, bi) => nestedBranchBlock(idx, bi, b)).join("")}
+        </div>
+
+        ${branches.length > 0 ? `
+          <label class="field-label" style="margin-top:14px">After finishing this story, branches required</label>
+          <select class="field-select s-required-branches">
+            ${branchReqOptions.join("")}
+          </select>
+          <p class="field-hint">Set to 0 if branches are optional. Otherwise, students must complete this many before this story counts as done.</p>
+` : `<input type="hidden" class="s-required-branches" value="0"/>`}
+      </div>
+    </div>
+  </details>`;
+}
+
+function nestedBranchBlock(storyIdx, branchIdx, b) {
+  return`<details class="learnmore-block" id="branch-${storyIdx}-${branchIdx}" data-id="${b.id || `b${Date.now()}_${storyIdx}_${branchIdx}`}" open>
+    <summary>
+      <span class="summary-content">🔍 <span class="branch-title-preview">Branch ${branchIdx + 1}${b.title ? ": " + escapeHTML(b.title) : ""}</span></span>
+      <span class="summary-actions"><button class="btn-icon" onclick="event.stopPropagation();removeNestedBranch(${storyIdx}, ${branchIdx})" title="Remove">✕</button></span>
+    </summary>
+    <div style="margin-top:12px">
+      <label class="field-label" style="margin-top:8px">Title *</label>
+      <input class="field-input nb-title" value="${escapeHTML(b.title || '')}" placeholder="e.g. Cultural Context: Honor and Shame" oninput="updateNestedBranchTitle(${storyIdx}, ${branchIdx}, this.value)"/>
+
+      <label class="field-label">Short Description</label>
+      <input class="field-input nb-desc" value="${escapeHTML(b.description || '')}" placeholder="One line shown to students on the branch picker"/>
+
+      <label class="field-label">Passage / Reading *</label>
+      <textarea class="field-textarea nb-passage" rows="5" placeholder="The text they'll read for this branch…">${escapeHTML(b.passage || '')}</textarea>
+
+      <label class="field-label">Questions</label>
+      <div class="nb-questions">
+        ${(b.questions || [{ text: "", maxRounds: 5 }]).map((q, qi) => qRow("nb",`${storyIdx}-${branchIdx}`, qi, q.text, q.maxRounds)).join("")}
+      </div>
+      <button class="btn btn-ghost mt-sm" onclick="addNestedQ(${storyIdx}, ${branchIdx})">+ Add Question</button>
+
+      <label class="field-label">AI Override (optional)</label>
+      <textarea class="field-textarea nb-instructions" rows="3" placeholder="Leave blank to use default AI instructions">${escapeHTML(b.instructions || '')}</textarea>
+    </div>
+  </details>`;
+}
+
+function qRow(prefix, parentIdx, qi, text="", rounds=5) {
+  const opts = [1,2,3,4,5].map(n=>`<option value="${n}" ${rounds==n?'selected':''}>${n} round${n>1?'s':''}</option>`).join("");
+  return `<div class="question-row q-row-${prefix}-${parentIdx}-${qi}">
+    <span class="q-num">${qi+1}.</span>
+    <input class="q-input qx" value="${escapeHTML(text)}" placeholder="Question ${qi+1}…"/>
+    <select class="q-rounds qrx">${opts}</select>
+    <button class="btn-icon" onclick="removeQ('${prefix}','${parentIdx}',${qi},this)" title="Remove">✕</button>
+  </div>`;
+}
+
+window.addStory = () => {
+  const c = $("stories-container");
+  const i = c.children.length;
+  c.insertAdjacentHTML("beforeend", storyBlock(i, emptyStory(i)));
+};
+window.removeStory = (i) => {
+  if (!confirm("Remove this story and all its branches?")) return;
+  const el = $(`story-${i}`); if (el) el.remove();
+};
+window.updateStoryTitle = (i, val) => {
+  const block = $(`story-${i}`); if (!block) return;
+  const preview = block.querySelector(".story-title-preview");
+  if (preview) preview.textContent =`Story ${i+1}${val?": "+val:""}`;
+};
+
+window.addNestedBranch = (storyIdx) => {
+  const list = $(`branches-list-${storyIdx}`);
+  if (!list) return;
+  // Remove placeholder if present
+  const placeholder = list.querySelector(".no-branches-placeholder");
+  if (placeholder) placeholder.remove();
+  const branchIdx = list.children.length;
+  list.insertAdjacentHTML("beforeend", nestedBranchBlock(storyIdx, branchIdx, emptyBranch(branchIdx)));
+
+  // Make sure the requiredBranches selector exists (regenerate if it doesn't)
+  const nestedBox = $(`nested-branches-${storyIdx}`);
+  if (nestedBox && !nestedBox.querySelector(".s-required-branches")) {
+    // Add a small selector below the list
+    const after = list;
+    after.insertAdjacentHTML("afterend", `
+      <label class="field-label" style="margin-top:14px">After finishing this story, branches required</label>
+      <select class="field-select s-required-branches">
+        <option value="0">0 — branches are optional (student can skip)</option>
+        <option value="1">1 branch required</option>
+      </select>
+      <p class="field-hint">Set to 0 if branches are optional. Otherwise, students must complete this many before this story counts as done.</p>
+    `);
+  } else if (nestedBox) {
+    // Update existing select to have enough options
+    const sel = nestedBox.querySelector(".s-required-branches");
+    if (sel && sel.tagName === "SELECT") {
+      const current = parseInt(sel.value, 10) || 0;
+      const newCount = list.children.length;
+      const need = Math.max(newCount, 5);
+      let html = "";
+      for (let n = 0; n <= need; n++) {
+        const label = n === 0 ? "0 — branches are optional (student can skip)" :`${n} branch${n>1?'es':''} required`;
+        html +=`<option value="${n}" ${n === current ? 'selected':''}>${label}</option>`;
+      }
+      sel.innerHTML = html;
+    }
+  }
+};
+
+window.removeNestedBranch = (storyIdx, branchIdx) => {
+  if (!confirm("Remove this branch?")) return;
+  const el = $(`branch-${storyIdx}-${branchIdx}`);
+  if (el) el.remove();
+  // If no branches left, restore placeholder
+  const list = $(`branches-list-${storyIdx}`);
+  if (list && list.children.length === 0) {
+    list.innerHTML =`<div class="no-branches-placeholder">No branches yet for this story. Click "Add Branch to This Story" above to create one.</div>`;
+  }
+};
+window.updateNestedBranchTitle = (storyIdx, branchIdx, val) => {
+  const block = $(`branch-${storyIdx}-${branchIdx}`);
+  if (!block) return;
+  const preview = block.querySelector(".branch-title-preview");
+  if (preview) preview.textContent =`Branch ${branchIdx+1}${val?": "+val:""}`;
+};
+
+window.addQ = (prefix, parentIdx) => {
+  const parentSel = prefix === "s" ?`#story-${parentIdx} .s-questions` :`#branch-${parentIdx} .nb-questions`;
+  const cont = document.querySelector(parentSel);
+  if (!cont) return;
+  cont.insertAdjacentHTML("beforeend", qRow(prefix, parentIdx, cont.children.length));
+};
+window.addNestedQ = (storyIdx, branchIdx) => {
+  const parentSel =`#branch-${storyIdx}-${branchIdx} .nb-questions`;
+  const cont = document.querySelector(parentSel);
+  if (!cont) return;
+  cont.insertAdjacentHTML("beforeend", qRow("nb",`${storyIdx}-${branchIdx}`, cont.children.length));
+};
+window.removeQ = (prefix, parentIdx, qi, btn) => {
+  btn.closest(".question-row").remove();
+};
+
+window.saveBranching = async (existingId) => {
+  const title = $("f-title").value.trim();
+  if (!title) { toast("Title required.", true); return; }
+
+  const stories = [];
+  document.querySelectorAll(".story-block").forEach((blk) => {
+    const sTitle = blk.querySelector(".s-title").value.trim();
+    const sImage = blk.querySelector(".s-image").value.trim();
+    const sPass = blk.querySelector(".s-passage").value.trim();
+    const sInstr = blk.querySelector(".s-instructions").value.trim();
+    if (!sTitle && !sPass) return;
+
+    const qs = [];
+    blk.querySelectorAll(".s-questions .question-row").forEach(row => {
+      const t = row.querySelector(".qx").value.trim();
+      if (t) qs.push({ text: t, maxRounds: parseInt(row.querySelector(".qrx").value, 10) || 5 });
+    });
+
+    const branches = [];
+    blk.querySelectorAll(".branches-inside .learnmore-block").forEach((bblk) => {
+      const bTitle = bblk.querySelector(".nb-title").value.trim();
+      const bDesc = bblk.querySelector(".nb-desc").value.trim();
+      const bPass = bblk.querySelector(".nb-passage").value.trim();
+      const bInstr = bblk.querySelector(".nb-instructions").value.trim();
+      if (!bTitle && !bPass) return;
+
+      const bqs = [];
+      bblk.querySelectorAll(".nb-questions .question-row").forEach(row => {
+        const t = row.querySelector(".qx").value.trim();
+        if (t) bqs.push({ text: t, maxRounds: parseInt(row.querySelector(".qrx").value, 10) || 5 });
+      });
+
+      branches.push({
+        id: bblk.dataset.id ||`b${Date.now()}_${branches.length}`,
+        title: bTitle, description: bDesc, passage: bPass, instructions: bInstr, questions: bqs
+      });
+    });
+
+    // Read per-story requiredBranches
+    const reqSel = blk.querySelector(".s-required-branches");
+    let storyReqBranches = 0;
+    if (reqSel) storyReqBranches = parseInt(reqSel.value, 10) || 0;
+    if (storyReqBranches > branches.length) storyReqBranches = branches.length;
+
+    stories.push({
+      id: blk.dataset.id ||`s${Date.now()}_${stories.length}`,
+      title: sTitle, imageUrl: sImage, passage: sPass, instructions: sInstr,
+      branches,
+      requiredBranches: storyReqBranches,
+      questions: qs
+    });
+  });
+
+  if (!stories.length) { toast("Add at least one story.", true); return; }
+
+  const reqStories = parseInt($("f-required-stories").value, 10) || 1;
+  if (reqStories > stories.length) { toast(`You require ${reqStories} stories but only have ${stories.length}.`, true); return; }
+
+  const l1sel = document.getElementById("prompt-l1-select");
+  const l2checks = document.getElementById("prompt-l2-checks");
+  const l3sel = document.getElementById("prompt-l3-select");
+  const promptCfg = {
+    layer1: l1sel?.value || "",
+    layer2: l2checks ? Array.from(l2checks.querySelectorAll("input:checked")).map(c => c.value) : [],
+    layer3: l3sel?.value || ""
+  };
+  const resolvedInstructions = [
+    await resolvePromptSelection("layer1", promptCfg.layer1),
+    await resolvePromptSelection("layer2", promptCfg.layer2),
+    await resolvePromptSelection("layer3", promptCfg.layer3)
+  ].filter(Boolean).join("\n\n");
+
+  const { classIds, classNames } = readClassChecks();
+  const payload = {
+    type: "branching", title,
+    subject: $("f-subject").value.trim(),
+    intro: $("f-intro").value.trim(),
+    promptCfg,
+    instructions: resolvedInstructions,
+    stories,
+    requiredStories: reqStories,
+    classIds, classNames,
+    teacherId: user.uid,
+    teacherName: user.displayName,
+    updatedAt: serverTimestamp()
+  };
+  await commonSaveAndPost(existingId, payload);
+};
+
+function renderClassCheckboxes(classes, selected) {
+  return `<div class="class-checkboxes" id="class-checks">
+    ${classes.length === 0
+      ?`<p style="color:var(--ink3);font-size:.85rem">⚠️ No classes found — make sure your Apps Script URL is set and you've granted access.</p>`
+      : classes.map(c => `
+        <label class="class-checkbox">
+          <input type="checkbox" value="${c.id}" data-name="${escapeHTML(c.name)}" ${(selected||[]).includes(c.id)?"checked":""}/>
+          <label>${escapeHTML(c.name)} <span style="color:var(--ink3);font-size:.8rem">(${escapeHTML(c.section||"")})</span></label>
+        </label>`).join("")}
+  </div>`;
+}
+function readClassChecks() {
+  const checks = document.querySelectorAll('#class-checks input[type=checkbox]:checked');
+  return {
+    classIds:   Array.from(checks).map(c=>c.value),
+    classNames: Array.from(checks).map(c=>c.dataset.name)
+  };
+}
+
+async function commonSaveAndPost(existingId, payload) {
+  let docId = existingId;
+  if (existingId) {
+    await setDoc(doc(db,"assignments",existingId), payload, {merge:true});
+  } else {
+    payload.createdAt = serverTimestamp();
+    const ref = await addDoc(collection(db,"assignments"), payload);
+    docId = ref.id;
+  }
+
+  if (payload.classIds.length && APPS_SCRIPT_URL && !APPS_SCRIPT_URL.startsWith("REPLACE")) {
+    const assignmentUrl = window.location.href.split("?")[0] +`?a=${docId}`;
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method:"POST",
+        headers:{"Content-Type":"text/plain;charset=utf-8"},
+        body: JSON.stringify({
+          action:"postAssignment",
+          token:gToken,
+          title: payload.title,
+          description:`Complete this AI-powered reading assignment: ${assignmentUrl}`,
+          url: assignmentUrl,
+          classIds: payload.classIds
+        })
+      });
+      toast("Published to Google Classroom ✓");
+    } catch(e) { toast("Saved, but Classroom post failed.", true); }
+  } else {
+    toast("Assignment saved ✓");
+  }
+  renderTeacherHome();
+}
+
+async function fetchTeacherClasses() {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.startsWith("REPLACE")) return [];
+
+  if (!gToken && role === "teacher") {
+    try {
+      const { reauthenticateWithPopup } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+      const result = await reauthenticateWithPopup(auth.currentUser, gpTeacher);
+      gToken = result._tokenResponse?.oauthAccessToken || null;
+    } catch(e) {
+      toast("Couldn't get Classroom access. " + e.message, true);
+      return [];
+    }
+  }
+
+  try {
+    const r = await fetch(`${APPS_SCRIPT_URL}?action=getClasses&token=${encodeURIComponent(gToken||"")}`);
+    const j = await r.json();
+    return j.classes || [];
+  } catch(e) { return []; }
+}
+
+window.deleteAssignment = async id => {
+  if (!confirm("Delete this assignment permanently?")) return;
+  await deleteDoc(doc(db,"assignments",id));
+  toast("Deleted.");
+  renderTeacherHome();
+};
+
+window.renderEditAssignment = async id => {
+  const snap = await getDoc(doc(db,"assignments",id));
+  renderCreateAssignment(id, snap.data());
+};
+
+window.duplicateAssignment = async id => {
+  const snap = await getDoc(doc(db,"assignments",id));
+  if (!snap.exists()) { toast("Assignment not found.", true); return; }
+  const data = snap.data();
+  const draft = { ...data, title:(data.title||"")+" (Copy)", classIds:[], classNames:[] };
+  delete draft.createdAt; delete draft.updatedAt;
+  renderCreateAssignment("", draft);
+  toast("Duplicated! Edit and choose classes, then publish.");
+};
+
+/* ═══════════════════════════════════════════════
+   TEACHER — RESPONSES (with timeout & fallback)
+═══════════════════════════════════════════════ */
+
+// Helper: fetch with timeout to prevent hanging
+function fetchWithTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    )
+  ]);
+}
+
+window.renderResponses = async (assignmentId, title) => {
+  mc().innerHTML = `
+    <button class="back-btn" onclick="renderTeacherHome()">← Back</button>
+    <div class="page-header">
+      <div><h1 class="page-title">Responses</h1><p class="page-sub">${escapeHTML(title||"")}</p></div>
+      <button class="btn btn-ghost" onclick="exportCSV('${assignmentId}')">⬇ Export CSV</button>
+    </div>
+    <div id="resp-container"><div class="loading-spinner"></div></div>`;
+
+  try {
+    logDebug("renderResponses start", { assignmentId, user: user?.uid });
+
+    const snp = await fetchWithTimeout(
+      getDocs(query(collection(db,"responses"), where("assignmentId","==",assignmentId))),
+      15000,
+      "Responses query"
+    );
+
+    logDebug("renderResponses query done", { count: snp.size, empty: snp.empty });
+
+    const cont = $("resp-container");
+    if (snp.empty) {
+      cont.innerHTML =`<div class="empty-state"><div class="empty-icon">📭</div><p>No responses yet.</p></div>`;
+      return;
+    }
+
+    let rows = "";
+    snp.forEach(d => {
+      const r = d.data();
+      const dt = r.submittedAt?.toDate?.()?.toLocaleDateString() ||
+                 r.lastSavedAt?.toDate?.()?.toLocaleDateString() || "—";
+      const isDraft = r.isDraft === true;
+      const exchangeCount = (r.session||[]).length;
+      rows += `<tr class="${isDraft ? 'draft' : ''}">
+        <td>
+          ${isDraft ? '<span class="live-dot"></span>' : ''}
+          ${escapeHTML(r.studentName||'')}
+          ${isDraft ? '<span class="tag draft" style="margin-left:6px">In Progress</span>' : ''}
+        </td>
+        <td>${escapeHTML(r.studentEmail||'')}</td>
+        <td>${dt}</td>
+        <td>${exchangeCount} exchange${exchangeCount===1?'':'s'}</td>
+        <td><button class="expand-btn" onclick="showDetailModal('${d.id}')">View →</button></td>
+      </tr>`;
+    });
+    cont.innerHTML = `<table class="responses-table">
+      <thead><tr><th>Student</th><th>Email</th><th>Date</th><th>Activity</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  } catch (e) {
+    console.error("renderResponses error:", e);
+    logDebug("renderResponses ERROR", e.message);
+    $("resp-container").innerHTML = `
+      <div class="error-state">
+        <div class="error-icon">⚠️</div>
+        <p>Failed to load responses.<br><small>${escapeHTML(e.message)}</small></p>
+        <button class="btn btn-primary mt-md" onclick="renderResponses('${assignmentId}','${escapeHTML(title||"").replace(/'/g,"\\'")}')">Try Again</button>
+      </div>
+      <div class="debug-panel" id="resp-debug"></div>`;
+    document.getElementById("resp-debug").textContent =`Debug: ${e.stack || e.message}`;
+    toast("Error loading responses", true);
+  }
+};
+
+window.renderAllResponses = async () => {
+  setActiveNav("nav-responses");
+  mc().innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">All Responses</h1><p class="page-sub">Across all your assignments</p></div>
+    </div>
+    <div id="resp-container"><div class="loading-spinner"></div></div>`;
+
+  let debugInfo = [];
+
+  try {
+    logDebug("renderAllResponses start", { user: user?.uid, role });
+
+    // Step 1: Get teacher's assignments with timeout
+    debugInfo.push("Step 1: Fetching assignments...");
+    const asgnQuery = query(collection(db,"assignments"), where("teacherId","==",user.uid));
+    const asgnSnap = await fetchWithTimeout(getDocs(asgnQuery), 15000, "Assignments query");
+
+    const assignmentIds = [];
+    asgnSnap.forEach(d => assignmentIds.push(d.id));
+    debugInfo.push(`Found ${assignmentIds.length} assignments: ${assignmentIds.join(", ") || "none"}`);
+
+    if (assignmentIds.length === 0) {
+      $("resp-container").innerHTML =`<div class="empty-state"><div class="empty-icon">📭</div><p>No assignments yet — create one first!</p></div>`;
+      return;
+    }
+
+    // Step 2: Fetch responses by assignmentId batches
+    debugInfo.push("Step 2: Fetching responses...");
+    const cont = $("resp-container");
+    let allResponses = [];
+
+    for (let i = 0; i < assignmentIds.length; i += 10) {
+      const batch = assignmentIds.slice(i, i + 10);
+      debugInfo.push(`Fetching batch ${i/10 + 1}: ${batch.length} IDs`);
+
+      const respQuery = query(collection(db,"responses"), where("assignmentId","in",batch));
+      const respSnap = await fetchWithTimeout(getDocs(respQuery), 15000,`Responses batch ${i/10 + 1}`);
+
+      respSnap.forEach(d => {
+        const data = d.data();
+        allResponses.push({ id: d.id, data });
+      });
+    }
+
+    debugInfo.push(`Found ${allResponses.length} total responses`);
+
+    if (allResponses.length === 0) {
+      cont.innerHTML =`<div class="empty-state"><div class="empty-icon">📭</div><p>No responses yet.</p></div>`;
+      return;
+    }
+
+    // Sort by date (most recent first)
+    allResponses.sort((a, b) => {
+      const aTime = a.data.lastSavedAt?.toDate?.() || a.data.submittedAt?.toDate?.() || 0;
+      const bTime = b.data.lastSavedAt?.toDate?.() || b.data.submittedAt?.toDate?.() || 0;
+      return bTime - aTime;
+    });
+
+    let rows = "";
+    allResponses.forEach(({ id, data: r }) => {
+      const dt = r.submittedAt?.toDate?.()?.toLocaleDateString() ||
+                 r.lastSavedAt?.toDate?.()?.toLocaleDateString() || "—";
+      const isDraft = r.isDraft === true;
+      const exchangeCount = (r.session||[]).length;
+      rows += `<tr class="${isDraft ? 'draft' : ''}">
+        <td>
+          ${isDraft ? '<span class="live-dot"></span>' : ''}
+          ${escapeHTML(r.studentName||'')}
+          ${isDraft ? '<span class="tag draft" style="margin-left:6px">In Progress</span>' : ''}
+        </td>
+        <td>${escapeHTML(r.assignmentTitle||"—")}</td>
+        <td>${dt}</td>
+        <td>${exchangeCount} exchanges</td>
+        <td><button class="expand-btn" onclick="showDetailModal('${id}')">View →</button></td>
+      </tr>`;
+    });
+    cont.innerHTML = `<table class="responses-table">
+      <thead><tr><th>Student</th><th>Assignment</th><th>Date</th><th>Activity</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+
+    logDebug("renderAllResponses success", { count: allResponses.length });
+
+  } catch (e) {
+    console.error("renderAllResponses error:", e);
+    logDebug("renderAllResponses ERROR", e.message);
+    $("resp-container").innerHTML = `
+      <div class="error-state">
+        <div class="error-icon">⚠️</div>
+        <p>Failed to load responses.<br><small>${escapeHTML(e.message)}</small></p>
+        <button class="btn btn-primary mt-md" onclick="renderAllResponses()">Try Again</button>
+      </div>
+      <div class="debug-panel" id="resp-debug"></div>`;
+    document.getElementById("resp-debug").textContent = debugInfo.join("\n") + "\n\nERROR: " + (e.stack || e.message);
+    toast("Error loading responses", true);
+  }
+};
+
+window.showDetailModal = async (responseId) => {
+  try {
+    const snap = await getDoc(doc(db,"responses",responseId));
+    if (!snap.exists()) {
+      toast("Response not found", true);
+      return;
+    }
+    const r = snap.data();
+    const isDraft = r.isDraft === true;
+    const statusBanner = isDraft
+      ? `<div style="background:#fef3e2;color:#d97706;padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:.85rem;font-weight:600">
+           <span class="live-dot"></span> This student is still working. Last saved: ${r.lastSavedAt?.toDate?.()?.toLocaleString() || "—"}
+         </div>`
+      : "";
+    const html = (r.session||[]).map((s,i) => `
+      <div style="margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--border)">
+        <p style="font-size:.78rem;font-weight:700;color:var(--ink3);text-transform:uppercase;margin-bottom:4px">${escapeHTML(s.context||"Q"+(i+1))}</p>
+        <p style="font-family:'Lora',serif;margin-bottom:8px">${escapeHTML(s.question)}</p>
+        <p style="font-size:.85rem;color:var(--ink2);margin-bottom:4px">Student:</p>
+        <p style="margin-bottom:8px;font-size:.92rem">${escapeHTML(s.answer)}</p>
+        <p style="font-size:.85rem;color:var(--accent);font-style:italic;border-left:2px solid var(--accent2);padding-left:10px">${escapeHTML(s.feedback)}</p>
+      </div>`).join("");
+    document.body.insertAdjacentHTML("beforeend", `
+      <div class="modal-overlay" id="detail-modal" onclick="if(event.target.id==='detail-modal')closeModal()">
+        <div class="modal">
+          <h2>${escapeHTML(r.studentName||"")} — ${escapeHTML(r.assignmentTitle||"")}</h2>
+          ${statusBanner}
+          <p style="color:var(--ink3);font-size:.85rem;margin-bottom:20px">${r.submittedAt?.toDate?.()?.toLocaleString() || r.lastSavedAt?.toDate?.()?.toLocaleString() || ""}</p>
+          ${html}
+          <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+          </div>
+        </div>
+      </div>`);
+  } catch (e) {
+    console.error("showDetailModal error:", e);
+    toast("Failed to load response details", true);
+  }
+};
+window.closeModal = () => { const m = $("detail-modal"); if(m) m.remove(); };
+
+window.exportCSV = async (assignmentId) => {
+  try {
+    const snp = await getDocs(query(collection(db,"responses"), where("assignmentId","==",assignmentId)));
+    let csv = "Student,Email,Date,Status,Context,Question,Answer,AI Feedback\n";
+    snp.forEach(d => {
+      const r = d.data();
+      const dt = r.submittedAt?.toDate?.()?.toLocaleDateString() ||
+                 r.lastSavedAt?.toDate?.()?.toLocaleDateString() || "";
+      const status = r.isDraft === true ? "In Progress" : "Completed";
+      (r.session||[]).forEach(s => {
+        const esc = v =>`"${(v||"").replace(/"/g,'""')}"`;
+        csv +=`${esc(r.studentName)},${esc(r.studentEmail)},${esc(dt)},${esc(status)},${esc(s.context||"")},${esc(s.question)},${esc(s.answer)},${esc(s.feedback)}\n`;
+      });
+    });
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+    a.download = "responses.csv";
+    a.click();
+  } catch (e) {
+    console.error("exportCSV error:", e);
+    toast("Failed to export CSV", true);
+  }
+};
+
+/* ═══════════════════════════════════════════════
+   STUDENT — HOME
+═══════════════════════════════════════════════ */
+async function renderStudentHome() {
+  hideAutosavePill();
+  mc().innerHTML = `
+    <div class="student-home">
+      <h1 class="page-title">Welcome, ${escapeHTML(user.displayName.split(" ")[0])} 👋</h1>
+      <p class="welcome-sub">Your assignments are listed below. Click one to begin.</p>
+      <div id="student-assignments"><div class="loading-spinner"></div></div>
+    </div>`;
+
+  const params = new URLSearchParams(window.location.search);
+  const directId = params.get("a");
+  if (directId) { startAssignment(directId); return; }
+
+  const snp = await getDocs(query(collection(db,"assignments")));
+  const list = $("student-assignments");
+  if (snp.empty) { list.innerHTML =`<div class="empty-state"><div class="empty-icon">📚</div><p>No assignments yet.</p></div>`; return; }
+
+  const doneSnap = await getDocs(query(collection(db,"responses"), where("studentId","==",user.uid), where("isDraft","==",false)));
+  const doneIds = new Set();
+  doneSnap.forEach(d => doneIds.add(d.data().assignmentId));
+
+  // Check which assignments have in-progress drafts
+  const progSnap = await getDocs(query(collection(db,"progress"), where("studentId","==",user.uid)));
+  const inProgressIds = new Set();
+  progSnap.forEach(d => inProgressIds.add(d.data().assignmentId));
+
+  list.innerHTML = "";
+  snp.forEach(d => {
+    const a = d.data();
+    const done = doneIds.has(d.id);
+    const inProgress = inProgressIds.has(d.id) && !done;
+    const icon = a.type === "branching" ? "🌿" : "📖";
+
+    let badge =`<span class="status-badge todo">To Do</span>`;
+    if (done) badge =`<span class="status-badge done">Done</span>`;
+    else if (inProgress) badge =`<span class="status-badge partial">In Progress</span>`;
+
+    list.innerHTML += `
+      <div class="assignment-student-card" onclick="startAssignment('${d.id}')">
+        <div class="asc-icon">${done ? "✅" : (inProgress ? "✏️" : icon)}</div>
+        <div class="asc-body">
+          <p class="asc-title">${escapeHTML(a.title)}</p>
+          <p class="asc-meta">${escapeHTML(a.subject||"General")} · ${escapeHTML(a.teacherName||"")}</p>
+        </div>
+        ${badge}
+      </div>`;
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   STUDENT — START ASSIGNMENT (with resume check)
+═══════════════════════════════════════════════ */
+window.startAssignment = async (assignmentId) => {
+  const snap = await getDoc(doc(db,"assignments",assignmentId));
+  if (!snap.exists()) { toast("Assignment not found.", true); return; }
+  curAssignment = { id: assignmentId, ...snap.data() };
+
+  // Check for saved progress
+  const saved = await loadProgress(assignmentId);
+  if (saved && (saved.session?.length || (saved.journey && saved.journey.storiesCompleted?.length))) {
+    showResumePrompt(saved);
+    return;
+  }
+
+  // Fresh start
+  freshStart();
+};
+
+function freshStart() {
+  session = [];
+  qIndex = 0;
+  followUpRound = 0;
+
+  if (curAssignment.type === "branching") {
+    journey = {
+      storiesCompleted:  [],
+      branchesCompleted: [],
+      branchesCompletedThisStory: 0,
+      currentStoryId:    null,
+      currentBranchId:   null,
+      phase: "story-pick"
+    };
+    renderStoryPicker();
+  } else {
+    renderLinearQuestion();
+  }
+}
+
+function showResumePrompt(saved) {
+  const exchangeCount = (saved.session || []).length;
+  let detail = "";
+  if (curAssignment.type === "branching" && saved.journey) {
+    const j = saved.journey;
+    const storiesDone = (j.storiesCompleted || []).length;
+    const branchesDone = (j.branchesCompleted || []).length;
+    detail =`<strong>${storiesDone}</strong> stor${storiesDone===1?'y':'ies'} completed`;
+    if (branchesDone > 0) detail +=` · <strong>${branchesDone}</strong> branch${branchesDone>1?'es':''} explored`;
+    detail +=` · <strong>${exchangeCount}</strong> answer${exchangeCount===1?'':'s'} saved`;
+  } else {
+    detail =`You're on question <strong>${(saved.qIndex || 0) + 1}</strong> · <strong>${exchangeCount}</strong> answer${exchangeCount===1?'':'s'} saved`;
+  }
+  const lastUpdated = saved.lastUpdated?.toDate?.()?.toLocaleString() || "earlier";
+
+  mc().innerHTML = `
+    <div class="resume-card">
+      <div class="completion-icon">📖</div>
+      <h2>Welcome back!</h2>
+      <p>You started <em>${escapeHTML(curAssignment.title)}</em> but didn't finish.</p>
+      <div class="resume-stats">
+        ${detail}<br/>
+        <span style="color:var(--ink3);font-size:.82rem">Last saved: ${escapeHTML(lastUpdated)}</span>
+      </div>
+      <div class="resume-actions">
+        <button class="btn btn-primary" onclick="resumeFromSaved()">Resume where I left off</button>
+        <button class="btn btn-secondary" onclick="confirmStartOver()">Start over</button>
+      </div>
+      <p style="margin-top:18px"><button class="back-btn" onclick="renderStudentHome()">← Back to assignments</button></p>
+    </div>`;
+
+  // Stash saved for resume
+  window._savedProgress = saved;
+}
+
+window.resumeFromSaved = () => {
+  const saved = window._savedProgress;
+  if (!saved) { freshStart(); return; }
+  session = saved.session || [];
+  qIndex = saved.qIndex || 0;
+  followUpRound = saved.followUpRound || 0;
+  journey = saved.journey || {};
+  window._savedProgress = null;
+
+  if (curAssignment.type === "branching") {
+    // Route to the correct phase
+    const phase = journey.phase || "story-pick";
+    if (phase === "story-questions" && journey.currentStoryId) {
+      renderStoryQuestion();
+    } else if (phase === "branch-pick" && journey.currentStoryId) {
+      renderBranchPicker();
+    } else if (phase === "branch-questions" && journey.currentStoryId && journey.currentBranchId) {
+      renderBranchQuestion();
+    } else {
+      renderStoryPicker();
+    }
+  } else {
+    renderLinearQuestion();
+  }
+  toast("Welcome back! Picking up where you left off.");
+};
+
+window.confirmStartOver = async () => {
+  if (!confirm("Start over from the beginning? Your saved progress will be erased.")) return;
+  await deleteProgress(curAssignment.id);
+  window._savedProgress = null;
+  freshStart();
+};
+
+/* ═══════════════════════════════════════════════
+   STUDENT — LINEAR FLOW
+═══════════════════════════════════════════════ */
+function renderLinearQuestion() {
+  const a = curAssignment;
+  const total = a.questions.length;
+  const progress = Math.round((qIndex / total) * 100);
+  followUpRound = 0;
+  const q = typeof a.questions[qIndex] === "string"
+    ? { text:a.questions[qIndex], maxRounds:5 }
+    : a.questions[qIndex];
+  MAX_ROUNDS_FOR_Q = q.maxRounds || 5;
+
+  mc().innerHTML = `
+    <div class="assignment-view">
+      <button class="back-btn" onclick="renderStudentHome()">← Back</button>
+      <h2 style="font-family:'Lora',serif;margin-bottom:4px">${escapeHTML(a.title)}</h2>
+      <p style="color:var(--ink3);font-size:.85rem;margin-bottom:16px">Question ${qIndex+1} of ${total}</p>
+
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${progress}%"></div></div>
+
+      <details ${qIndex===0?"open":""}>
+        <summary style="cursor:pointer;font-weight:600;font-size:.9rem;color:var(--ink2);margin-bottom:8px;user-select:none">
+          📄 Reading Passage ${qIndex>0?"(click to expand)":""}
+        </summary>
+        <div class="passage-box">${escapeHTML(a.passage).replace(/\n/g,"<br/>")}</div>
+      </details>
+
+      <div class="question-box" style="margin-top:16px">
+        <p class="question-label">Question ${qIndex+1}</p>
+        <p class="question-text">${escapeHTML(q.text)}</p>
+      </div>
+
+      <div id="ai-feedback-area"></div>
+
+      <textarea id="student-answer" class="answer-area" placeholder="Type your answer here…"></textarea>
+
+      <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap" id="action-row">
+        <button class="btn btn-primary" id="submit-btn" onclick="handleSubmit('first')">Submit Answer</button>
+      </div>
+    </div>`;
+}
+
+window.nextLinearQuestion = () => {
+  qIndex++;
+  followUpRound = 0;
+  if (qIndex >= curAssignment.questions.length) completeAssignment();
+  else { renderLinearQuestion(); saveProgress(); }
+};
+
+/* ═══════════════════════════════════════════════
+   STUDENT — BRANCHING FLOW
+═══════════════════════════════════════════════ */
+function renderStoryPicker() {
+  journey.phase = "story-pick";
+  journey.currentStoryId = null;
+  journey.currentBranchId = null;
+  const a = curAssignment;
+  const completed = journey.storiesCompleted.length;
+  const required = a.requiredStories || 1;
+  const remaining = required - completed;
+
+  let progressMsg = "";
+  if (completed === 0) {
+    progressMsg =`Choose one of ${a.stories.length} stories to begin. <strong>Complete ${required} stor${required>1?'ies':'y'}</strong> to finish this assignment.`;
+  } else if (remaining > 0) {
+    progressMsg =`Great work! <strong>${completed} of ${required}</strong> stor${required>1?'ies':'y'} complete. Choose another to continue.`;
+  } else {
+    progressMsg =`You've completed all required stories! 🎉`;
+  }
+
+  const cardsHTML = a.stories.map(s => {
+    const done = journey.storiesCompleted.includes(s.id);
+    const img  = s.imageUrl ? normaliseImageURL(s.imageUrl) : "";
+    const branchCount = (s.branches || []).length;
+    const reqBr = s.requiredBranches || 0;
+    let metaParts = [`${(s.questions||[]).length} question${(s.questions||[]).length===1?'':'s'}`];
+    if (branchCount > 0) {
+      if (reqBr > 0) metaParts.push(`+ ${reqBr} of ${branchCount} branch${branchCount>1?'es':''} required`);
+      else metaParts.push(`+ ${branchCount} optional branch${branchCount>1?'es':''}`);
+    }
+    return `
+      <div class="story-card ${done?'completed':''}" onclick="${done?'':`pickStory('${s.id}')`}">
+        <div class="story-img-wrap" style="position:relative">
+          ${img
+            ?`<img src="${img}" alt="${escapeHTML(s.title)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="story-img-placeholder" style="display:none">📖</div>`
+            :`<div class="story-img-placeholder">📖</div>`}
+          ${done ?`<span class="story-status-badge">✓ Done</span>` : ""}
+        </div>
+        <div class="story-card-body">
+          <p class="story-card-title">${escapeHTML(s.title)}</p>
+          <p class="story-card-meta">${metaParts.join(" · ")}</p>
+        </div>
+      </div>`;
+  }).join("");
+
+  mc().innerHTML = `
+    <div class="assignment-view">
+      <button class="back-btn" onclick="renderStudentHome()">← Back</button>
+      <h2 style="font-family:'Lora',serif;margin-bottom:4px">${escapeHTML(a.title)}</h2>
+      ${a.intro ?`<p style="color:var(--ink2);margin-bottom:20px;line-height:1.6">${escapeHTML(a.intro)}</p>` : ""}
+      <div class="journey-progress">${progressMsg}</div>
+
+      ${remaining <= 0
+        ? `<div style="text-align:center;margin:40px 0">
+             <button class="btn btn-primary" onclick="completeAssignment()">Finish Assignment ✓</button>
+           </div>`
+        : ""}
+
+      <h3 style="margin-bottom:14px;font-family:'Lora',serif;font-size:1.15rem">${remaining<=0?"Stories":"Choose Your Story"}</h3>
+      <div class="story-grid">${cardsHTML}</div>
+    </div>`;
+
+  saveProgress();
+}
+
+window.pickStory = (storyId) => {
+  const story = curAssignment.stories.find(s => s.id === storyId);
+  if (!story) return;
+  journey.currentStoryId = storyId;
+  journey.phase = "story-questions";
+  journey.branchesCompletedThisStory = 0;
+  qIndex = 0;
+  followUpRound = 0;
+  renderStoryQuestion();
+  saveProgress();
+};
+
+function renderStoryQuestion() {
+  const story = curAssignment.stories.find(s => s.id === journey.currentStoryId);
+  if (!story) { renderStoryPicker(); return; }
+  const total = story.questions.length;
+
+  if (qIndex >= total) {
+    // Story base questions finished. If this story has branches, show the picker.
+    const hasBranches = (story.branches || []).length > 0;
+    if (hasBranches) {
+      journey.phase = "branch-pick";
+      renderBranchPicker();
+    } else {
+      finishStory();
+    }
+    return;
+  }
+
+  followUpRound = 0;
+  const q = story.questions[qIndex];
+  MAX_ROUNDS_FOR_Q = q.maxRounds || 5;
+  const progress = Math.round((qIndex / total) * 100);
+  const img = story.imageUrl ? normaliseImageURL(story.imageUrl) : "";
+
+  mc().innerHTML = `
+    <div class="assignment-view">
+      <button class="back-btn" onclick="renderStoryPicker()">← Back to Stories</button>
+      <h2 style="font-family:'Lora',serif;margin-bottom:4px">${escapeHTML(story.title)}</h2>
+      <p style="color:var(--ink3);font-size:.85rem;margin-bottom:16px">Question ${qIndex+1} of ${total}</p>
+
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${progress}%"></div></div>
+
+      ${img && qIndex===0 ?`<img src="${img}" alt="" style="width:100%;max-height:280px;object-fit:cover;border-radius:var(--radius);margin-bottom:16px;border:1px solid var(--border)"/>` : ""}
+
+      <details ${qIndex===0?"open":""}>
+        <summary style="cursor:pointer;font-weight:600;font-size:.9rem;color:var(--ink2);margin-bottom:8px;user-select:none">
+          📄 Story Passage ${qIndex>0?"(click to expand)":""}
+        </summary>
+        <div class="passage-box">${escapeHTML(story.passage).replace(/\n/g,"<br/>")}</div>
+      </details>
+
+      <div class="question-box" style="margin-top:16px">
+        <p class="question-label">Question ${qIndex+1}</p>
+        <p class="question-text">${escapeHTML(q.text)}</p>
+      </div>
+
+      <div id="ai-feedback-area"></div>
+
+      <textarea id="student-answer" class="answer-area" placeholder="Type your answer here…"></textarea>
+
+      <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap" id="action-row">
+        <button class="btn btn-primary" id="submit-btn" onclick="handleSubmit('first')">Submit Answer</button>
+      </div>
+    </div>`;
+}
+
+window.nextStoryQuestion = () => {
+  qIndex++;
+  followUpRound = 0;
+  renderStoryQuestion();
+  saveProgress();
+};
+
+function renderBranchPicker() {
+  journey.phase = "branch-pick";
+  const a = curAssignment;
+  const currentStory = a.stories.find(s => s.id === journey.currentStoryId);
+  if (!currentStory) { renderStoryPicker(); return; }
+
+  // ONLY this story's branches
+  const availableBranches = currentStory.branches || [];
+  const requiredBr = currentStory.requiredBranches || 0;
+  const doneCount = journey.branchesCompletedThisStory || 0;
+  const remaining = requiredBr - doneCount;
+  const branchesOptional = requiredBr === 0;
+
+  let msg = "";
+  if (availableBranches.length === 0) {
+    msg =`No extra learning paths for this story.`;
+  } else if (branchesOptional) {
+    if (doneCount === 0) {
+      msg =`Nice work on the story! You can <strong>optionally</strong> explore "Learn More" branches below, or finish this story now.`;
+    } else {
+      msg =`You've explored <strong>${doneCount}</strong> branch${doneCount>1?'es':''}. Pick another or finish this story.`;
+    }
+  } else if (doneCount === 0) {
+    msg =`Now choose what you'd like to <strong>learn more about</strong>. Complete <strong>${requiredBr}</strong> branch${requiredBr>1?'es':''} to finish this story.`;
+  } else if (remaining > 0) {
+    msg =`Nice! <strong>${doneCount} of ${requiredBr}</strong> done. Pick another.`;
+  } else {
+    msg =`All required branches complete! 🎉`;
+  }
+
+  const branchesDoneSet = new Set(journey.branchesCompleted || []);
+
+  const branchHTML = availableBranches.map(b => {
+    const done = branchesDoneSet.has(b.id);
+    return `
+      <div class="branch-picker-card ${done ? 'completed' : ''}" onclick="${done ? '' : `pickBranch('${b.id}')`}">
+        <div class="branch-icon">🔍</div>
+        <div class="branch-body">
+          <p class="branch-title">${escapeHTML(b.title)}${done ? ' ✓' : ''}</p>
+          ${b.description ?`<p class="branch-desc">${escapeHTML(b.description)}</p>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+
+  const canFinishStory = availableBranches.length === 0 || branchesOptional || remaining <= 0;
+  const finishBtnLabel = remaining > 0 && branchesOptional
+    ? "Skip Branches & Finish Story"
+    : "Finish This Story →";
+
+  mc().innerHTML = `
+    <div class="assignment-view">
+      <button class="back-btn" onclick="renderStoryPicker()">← Back to Stories</button>
+      <h2 style="font-family:'Lora',serif;margin-bottom:4px">Learn More: ${escapeHTML(currentStory.title || "")}</h2>
+      <div class="journey-progress">${msg}</div>
+      ${canFinishStory
+        ? `<div style="text-align:center;margin:24px 0">
+             <button class="btn ${(remaining<=0||availableBranches.length===0)?'btn-primary':'btn-secondary'}" onclick="finishStory()">
+               ${finishBtnLabel}
+             </button>
+           </div>`
+        : ""}
+      ${availableBranches.length > 0 ? branchHTML : ""}
+    </div>`;
+
+  saveProgress();
+}
+
+window.pickBranch = (branchId) => {
+  const currentStory = curAssignment.stories.find(s => s.id === journey.currentStoryId);
+  const branch = currentStory?.branches?.find(b => b.id === branchId);
+  if (!branch) return;
+  journey.currentBranchId = branchId;
+  journey.phase = "branch-questions";
+  qIndex = 0;
+  followUpRound = 0;
+  renderBranchQuestion();
+  saveProgress();
+};
+
+function renderBranchQuestion() {
+  const currentStory = curAssignment.stories.find(s => s.id === journey.currentStoryId);
+  const branch = currentStory?.branches?.find(b => b.id === journey.currentBranchId);
+  if (!branch) { renderBranchPicker(); return; }
+  const total = branch.questions.length;
+
+  if (qIndex >= total) {
+    // Branch done
+    if (!journey.branchesCompleted.includes(branch.id)) journey.branchesCompleted.push(branch.id);
+    journey.branchesCompletedThisStory = (journey.branchesCompletedThisStory || 0) + 1;
+    journey.currentBranchId = null;
+    renderBranchPicker();
+    saveProgress();
+    return;
+  }
+
+  followUpRound = 0;
+  const q = branch.questions[qIndex];
+  MAX_ROUNDS_FOR_Q = q.maxRounds || 5;
+  const progress = Math.round((qIndex / total) * 100);
+
+  mc().innerHTML = `
+    <div class="assignment-view">
+      <button class="back-btn" onclick="renderBranchPicker()">← Back</button>
+      <h2 style="font-family:'Lora',serif;margin-bottom:4px">${escapeHTML(branch.title)}</h2>
+      <p style="color:var(--ink3);font-size:.85rem;margin-bottom:16px">Question ${qIndex+1} of ${total}</p>
+
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${progress}%"></div></div>
+
+      <details ${qIndex===0?"open":""}>
+        <summary style="cursor:pointer;font-weight:600;font-size:.9rem;color:var(--ink2);margin-bottom:8px;user-select:none">
+          📄 Reading ${qIndex>0?"(click to expand)":""}
+        </summary>
+        <div class="passage-box">${escapeHTML(branch.passage).replace(/\n/g,"<br/>")}</div>
+      </details>
+
+      <div class="question-box" style="margin-top:16px">
+        <p class="question-label">Question ${qIndex+1}</p>
+        <p class="question-text">${escapeHTML(q.text)}</p>
+      </div>
+
+      <div id="ai-feedback-area"></div>
+
+      <textarea id="student-answer" class="answer-area" placeholder="Type your answer here…"></textarea>
+
+      <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap" id="action-row">
+        <button class="btn btn-primary" id="submit-btn" onclick="handleSubmit('first')">Submit Answer</button>
+      </div>
+    </div>`;
+}
+
+window.nextBranchQuestion = () => {
+  qIndex++;
+  followUpRound = 0;
+  renderBranchQuestion();
+  saveProgress();
+};
+
+window.finishStory = () => {
+  if (!journey.storiesCompleted.includes(journey.currentStoryId)) {
+    journey.storiesCompleted.push(journey.currentStoryId);
+  }
+  journey.currentStoryId = null;
+  journey.currentBranchId = null;
+  journey.branchesCompletedThisStory = 0;
+
+  if (journey.storiesCompleted.length >= (curAssignment.requiredStories || 1)) {
+    completeAssignment();
+  } else {
+    renderStoryPicker();
+  }
+};
+
+/* ═══════════════════════════════════════════════
+   SHARED ANSWER HANDLING (with autosave + live sync)
+═══════════════════════════════════════════════ */
+window.handleSubmit = async (mode, roundId) => {
+  const inputBox = mode === "first" ? $("student-answer") : $(`followup-answer-${roundId}`);
+  const answer   = inputBox.value.trim();
+  if (!answer) { toast("Please write an answer first.", true); return; }
+
+  if (mode === "first") {
+    $("submit-btn").disabled = true;
+    inputBox.disabled = true;
+  } else {
+    inputBox.disabled = true;
+    const btn = inputBox.parentElement.querySelector("button");
+    if (btn) { btn.disabled = true; btn.textContent = "Submitting…"; }
+  }
+
+  const fbArea = $("ai-feedback-area");
+  const thinkingId = `thinking-${Date.now()}`;
+  fbArea.insertAdjacentHTML("beforeend",
+    `<div class="ai-response" id="${thinkingId}"><div class="ai-label">Tutor</div>
+     <div class="typing-dots"><span></span><span></span><span></span></div></div>`);
+
+  const rawFeedback = await getAIFeedback(answer);
+
+  let signal = "CONTINUE";
+  let cleanFeedback = rawFeedback;
+  if (rawFeedback.includes("[ADVANCE]")) {
+    signal = "ADVANCE";
+    cleanFeedback = rawFeedback.replace(/\[ADVANCE\]/g, "").trim();
+  } else if (rawFeedback.includes("[CONTINUE]")) {
+    cleanFeedback = rawFeedback.replace(/\[CONTINUE\]/g, "").trim();
+  }
+
+  const thinkingEl = $(thinkingId);
+  if (thinkingEl) thinkingEl.remove();
+  fbArea.insertAdjacentHTML("beforeend",
+    `<div class="exchange-block">
+       <p class="student-prior-answer"><strong>Your answer:</strong> ${escapeHTML(answer)}</p>
+       <div class="ai-response"><div class="ai-label">Tutor</div><p>${escapeHTML(cleanFeedback).replace(/\n/g,"<br/>")}</p></div>
+     </div>`);
+
+  const ctx = getCurrentContextLabel();
+  const qText = getCurrentQuestionText();
+  session.push({ context:ctx, question:qText, answer, feedback:cleanFeedback });
+
+  followUpRound++;
+  // ★ AUTOSAVE after every exchange (local progress + live teacher visibility)
+  await Promise.all([
+    saveProgress(),
+    savePartialResponse()
+  ]);
+
+  const forceAdvance = followUpRound >= MAX_ROUNDS_FOR_Q;
+
+  if (signal === "ADVANCE" || forceAdvance) {
+    const ar = $("action-row");
+    ar.innerHTML = `<button class="btn btn-primary" onclick="goNextQuestion()">Next Question →</button>`;
+    if (forceAdvance && signal !== "ADVANCE") {
+      ar.insertAdjacentHTML("afterbegin",
+        `<p style="color:var(--ink3);font-size:.85rem;margin-bottom:8px;width:100%">
+          You've explored this question well — let's move on.</p>`);
+    }
+    ar.scrollIntoView({behavior:"smooth", block:"center"});
+  } else {
+    if (mode === "first") {
+      inputBox.style.display = "none";
+      $("submit-btn").style.display = "none";
+    }
+    const newRoundId = followUpRound;
+    fbArea.insertAdjacentHTML("beforeend", `
+      <div class="followup-input-block">
+        <p class="followup-prompt">Develop your answer further based on the tutor's feedback:</p>
+        <textarea id="followup-answer-${newRoundId}" class="answer-area" placeholder="Type your next response here…"></textarea>
+        <button class="btn btn-primary mt-sm" onclick="handleSubmit('followup', ${newRoundId})">
+          Submit (round ${followUpRound + 1} of ${MAX_ROUNDS_FOR_Q})
+        </button>
+      </div>`);
+    setTimeout(() => {
+      const nb = $(`followup-answer-${newRoundId}`);
+      if (nb) { nb.focus(); nb.scrollIntoView({behavior:"smooth", block:"center"}); }
+    }, 100);
+  }
+};
+
+window.goNextQuestion = () => {
+  if (curAssignment.type !== "branching") return nextLinearQuestion();
+  if (journey.phase === "story-questions")  return nextStoryQuestion();
+  if (journey.phase === "branch-questions") return nextBranchQuestion();
+};
+
+function getCurrentContextLabel() {
+  if (curAssignment.type !== "branching") return`Q${qIndex+1}`;
+  if (journey.phase === "story-questions") {
+    const s = curAssignment.stories.find(x=>x.id===journey.currentStoryId);
+    return`Story: ${s?.title||""} — Q${qIndex+1}`;
+  }
+  if (journey.phase === "branch-questions") {
+    const currentStory = curAssignment.stories.find(x => x.id === journey.currentStoryId);
+    const b = currentStory?.branches?.find(x => x.id === journey.currentBranchId);
+    return`Branch: ${b?.title||""} — Q${qIndex+1}`;
+  }
+  return`Q${qIndex+1}`;
+}
+
+function getCurrentQuestionText() {
+  if (curAssignment.type !== "branching") {
+    const q = curAssignment.questions[qIndex];
+    return typeof q === "string" ? q : q.text;
+  }
+  if (journey.phase === "story-questions") {
+    const s = curAssignment.stories.find(x=>x.id===journey.currentStoryId);
+    return s.questions[qIndex].text;
+  }
+  if (journey.phase === "branch-questions") {
+    const currentStory = curAssignment.stories.find(x => x.id === journey.currentStoryId);
+    const b = currentStory?.branches?.find(x => x.id === journey.currentBranchId);
+    return b.questions[qIndex].text;
+  }
+  return "";
+}
+
+async function getAIFeedback(studentAnswer, attempt = 1) {
+    const a = curAssignment;
+    let systemPrompt;
+    let passage;
+    let questionText = getCurrentQuestionText();
+
+    if (a.type !== "branching") {
+        systemPrompt = a.instructions || "";
+        passage = a.passage;
+    } else {
+        if (journey.phase === "story-questions") {
+            const s = curAssignment.stories.find(x => x.id === journey.currentStoryId);
+            systemPrompt = s.instructions || a.instructions || "";
+            passage = s.passage;
+        } else if (journey.phase === "branch-questions") {
+            const currentStory = curAssignment.stories.find(x => x.id === journey.currentStoryId);
+            const b = currentStory?.branches?.find(x => x.id === journey.currentBranchId);
+            systemPrompt = b.instructions || a.instructions || "";
+            passage = b.passage;
+        }
+    }
+
+    const currentCtx = getCurrentContextLabel();
+    const sameQ = session.filter(s => s.context === currentCtx);
+    const conversationHistory = sameQ.map(s => [
+        { role: "user", content: `Question: ${s.question}\nMy answer: ${s.answer}` },
+        { role: "assistant", content: s.feedback }
+    ]).flat();
+
+    conversationHistory.push({
+        role: "user",
+        content: `Passage:\n${passage}\n\nQuestion: ${questionText}\n\nMy answer: ${studentAnswer}`
+    });
+
+    try {
+        const resp = await fetch(APPS_SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+                action: "getAIFeedback",
+                systemPrompt,
+                messages: conversationHistory
+            })
+        });
+        const data = await resp.json();
+
+        if (data.feedback) {
+            return data.feedback;
+        }
+
+        // feedback field missing or empty — retry once if first attempt
+        if (attempt === 1) {
+            console.warn("AI feedback empty on attempt 1, retrying...");
+            return getAIFeedback(studentAnswer, 2);
+        }
+
+        return "Thank you for your response. What else can you tell me about that?";
+
+    } catch (e) {
+        // fetch threw — retry once if first attempt
+        if (attempt === 1) {
+            console.warn("AI fetch failed on attempt 1, retrying...", e);
+            return getAIFeedback(studentAnswer, 2);
+        }
+
+        return "Great effort! What else can you tell me about that?";
+    }
+}
+
+window.completeAssignment = async () => {
+  mc().innerHTML = `<div class="loading-spinner" style="margin-top:80px"></div>`;
+
+  const responseData = {
+    assignmentId:    curAssignment.id,
+    assignmentTitle: curAssignment.title,
+    studentId:       user.uid,
+    studentName:     user.displayName,
+    studentEmail:    user.email,
+    teacherId:       curAssignment.teacherId,
+    session,
+    journey: curAssignment.type === "branching" ? journey : null,
+    isDraft:         false,
+    submittedAt:     serverTimestamp(),
+    lastSavedAt:     serverTimestamp()
+  };
+  await setDoc(doc(db, "responses", responseDocId(curAssignment.id)), responseData);
+
+  // ★ Clean up progress doc now that it's finalised
+  await deleteProgress(curAssignment.id);
+
+  if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.startsWith("REPLACE")) {
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method:"POST",
+        headers:{"Content-Type":"text/plain;charset=utf-8"},
+        body: JSON.stringify({
+          action:"saveResponse",
+          assignmentTitle: curAssignment.title,
+          studentName:     user.displayName,
+          studentEmail:    user.email,
+          submittedAt:     new Date().toLocaleString(),
+          session
+        })
+      });
+    } catch(e) { console.warn("Sheets sync failed:", e); }
+  }
+
+  hideAutosavePill();
+  mc().innerHTML = `
+    <div class="completion-card">
+      <div class="completion-icon">🎉</div>
+      <h2>Assignment Complete!</h2>
+      <p>Great work on <em>${escapeHTML(curAssignment.title)}</em>. Your responses have been saved and your teacher has been notified.</p>
+      <button class="btn btn-primary" onclick="renderStudentHome()">← Back to My Assignments</button>
+    </div>`;
+};
+
+// Save progress if user closes the tab mid-session
+window.addEventListener("beforeunload", () => {
+  if (user && curAssignment && session.length > 0) {
+    // Best-effort sync save — most browsers allow no async here
+    try { saveProgress(); savePartialResponse(); } catch(_) {}
+  }
+});
+
+/* Expose router functions for inline handlers */
+window.renderTeacherHome      = renderTeacherHome;
+window.renderCreateAssignment = renderCreateAssignment;
+window.renderStudentHome      = renderStudentHome;
+window.renderAllResponses     = renderAllResponses;
+
+</script>
+
+</body>
+</html>
