@@ -130,6 +130,41 @@
   .class-checkbox:hover { border-color:var(--accent2); }
   .class-checkbox input { accent-color:var(--accent); width:16px; height:16px; }
   .class-checkbox label { cursor:pointer; font-size:.92rem; }
+  /* ── EXPANDABLE CLASS PICKER ──────────────── */
+.class-picker-item {
+  border:1.5px solid var(--border); border-radius:8px; margin-bottom:8px;
+  background:var(--surface); transition:border-color .12s;
+}
+.class-picker-item:hover { border-color:var(--accent2); }
+.class-picker-row {
+  display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer;
+}
+.class-picker-row input[type=checkbox] { accent-color:var(--accent); width:16px; height:16px; }
+.class-picker-name { font-size:.92rem; flex:1; }
+.class-picker-summary { font-size:.8rem; color:var(--ink3); margin-right:8px; }
+.class-picker-toggle {
+  background:none; border:none; color:var(--ink3); font-size:1rem; cursor:pointer;
+  padding:2px 6px; transition:transform .15s; user-select:none;
+}
+.class-picker-toggle.open { transform:rotate(90deg); color:var(--accent); }
+.class-picker-students {
+  border-top:1px solid var(--border); padding:10px 14px 14px 40px;
+  background:var(--bg); max-height:280px; overflow-y:auto;
+  border-radius:0 0 8px 8px;
+}
+.class-picker-students .all-toggle {
+  font-size:.85rem; font-weight:600; color:var(--accent); padding:4px 0;
+  border-bottom:1px solid var(--border); margin-bottom:8px;
+}
+.class-picker-students label {
+  display:flex; align-items:center; gap:8px; padding:4px 0; font-size:.88rem;
+  cursor:pointer;
+}
+.class-picker-students label.inactive { opacity:.5; color:var(--ink3); }
+.class-picker-students label.inactive::after {
+  content:" (no longer in class)"; font-size:.75rem; font-style:italic;
+}
+.class-picker-students .loading { color:var(--ink3); font-size:.85rem; font-style:italic; padding:8px 0; }
 
   .type-picker { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .type-card { border:2px solid var(--border); border-radius:var(--radius); padding:18px; cursor:pointer; transition:all .15s; background:var(--surface); }
@@ -569,6 +604,9 @@ function toast(msg, isError=false) {
   setTimeout(()=> t.className="", 3000);
 }
 
+function escapeAttr(s) {
+  return (s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/'/g,"&#39;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
 function escapeHTML(s) { return (s||"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
 
 function normaliseImageURL(url) {
@@ -1047,6 +1085,166 @@ window.deletePrompt = async (id, isBuiltin, builtinId, layer) => {
   toast(isB ? "Hidden." : "Deleted.");
 };
 
+/* ═══════════════════════════════════════════════════════════
+   EXPORT ASSIGNMENT TO XLSX
+   Produces a file matching the bulk-import template format so
+   teachers can edit in Excel/Sheets and re-import.
+═══════════════════════════════════════════════════════════ */
+window.exportAssignmentXLSX = async (assignmentId) => {
+  try {
+    const snap = await getDoc(doc(db,"assignments",assignmentId));
+    if (!snap.exists()) { toast("Assignment not found.", true); return; }
+    const a = snap.data();
+ 
+    // Build rows matching the bulk-import template columns
+    const headers = [
+      "Type","Story ID","Branch ID","Order","Title","Body / Passage",
+      "Image URL","Video URL","Transcript","Max Rounds","AI Goal",
+      "Layer 2 Preset","Required Stories","Required Branches","Subject Tag"
+    ];
+    const rows = [headers];
+ 
+    // Helper to lookup preset id (for Layer 2)
+    const layer2Default = (a.promptCfg && Array.isArray(a.promptCfg.layer2) && a.promptCfg.layer2.length > 0)
+      ? a.promptCfg.layer2[0] : "";
+ 
+    if (a.type === "branching") {
+      // Assignment row
+      rows.push([
+        "assignment", "", "", "",
+        a.title || "",
+        a.intro || "",
+        "", "", "", "", "",
+        layer2Default,
+        a.requiredStories || 1,
+        "",
+        a.subject || ""
+      ]);
+      // Stories
+      (a.stories || []).forEach((s, sIdx) => {
+        rows.push([
+          "story",
+          s.id || "",
+          "",
+          sIdx + 1,
+          s.title || "",
+          s.passage || "",
+          s.imageUrl || "",
+          s.videoUrl || "",
+          s.transcript || "",
+          "",
+          "",
+          "",  // Layer 2 preset for story (we don't preserve the ID here, only instructions text)
+          "",
+          s.requiredBranches || 0,
+          ""
+        ]);
+        // Story questions
+        (s.questions || []).forEach((q, qIdx) => {
+          rows.push([
+            "story-q",
+            s.id || "",
+            "",
+            qIdx + 1,
+            "",
+            q.text || "",
+            "", "", "",
+            q.maxRounds || 5,
+            q.instructions || "",
+            "",
+            "", "", ""
+          ]);
+        });
+        // Story branches
+        (s.branches || []).forEach((b, bIdx) => {
+          rows.push([
+            "branch",
+            s.id || "",
+            b.id || "",
+            bIdx + 1,
+            b.title || "",
+            b.passage || "",
+            "", "", "",
+            "",
+            "",
+            "",
+            "", "", ""
+          ]);
+          (b.questions || []).forEach((q, qIdx) => {
+            rows.push([
+              "branch-q",
+              s.id || "",
+              b.id || "",
+              qIdx + 1,
+              "",
+              q.text || "",
+              "", "", "",
+              q.maxRounds || 5,
+              q.instructions || "",
+              "",
+              "", "", ""
+            ]);
+          });
+        });
+      });
+    } else {
+      // Linear assignment — just one passage and questions
+      rows.push([
+        "assignment", "", "", "",
+        a.title || "",
+        a.passage || "",
+        "", "", "", "", "",
+        layer2Default,
+        1,
+        "",
+        a.subject || ""
+      ]);
+      (a.questions || []).forEach((q, qIdx) => {
+        const text = typeof q === "string" ? q : q.text;
+        const maxR = typeof q === "string" ? 5 : (q.maxRounds || 5);
+        rows.push([
+          "story-q",
+          "main",
+          "",
+          qIdx + 1,
+          "",
+          text || "",
+          "", "", "",
+          maxR,
+          "",
+          "",
+          "", "", ""
+        ]);
+      });
+      // For linear, add a single "story" row to anchor the questions
+      rows.splice(2, 0, [
+        "story", "main", "", 1, a.title || "", a.passage || "",
+        "", "", "", "", "", "", "", 0, ""
+      ]);
+    }
+ 
+    // Build the workbook with SheetJS (already loaded)
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+ 
+    // Set column widths roughly to match the template
+    ws['!cols'] = [
+      { wch:14 }, { wch:14 }, { wch:14 }, { wch:8 }, { wch:30 }, { wch:50 },
+      { wch:24 }, { wch:24 }, { wch:30 }, { wch:11 }, { wch:35 },
+      { wch:24 }, { wch:16 }, { wch:18 }, { wch:14 }
+    ];
+ 
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+ 
+    // Filename
+    const safeName = (a.title || "assignment").replace(/[^\w\s-]/g, "").replace(/\s+/g, "_").substring(0, 40);
+    XLSX.writeFile(wb, `${safeName}_export.xlsx`);
+    toast("Exported ✓");
+  } catch(e) {
+    console.error(e);
+    toast("Export failed: " + e.message, true);
+  }
+};
 /* ═══════════════════════════════════════════════════════════
    BULK IMPORT (XLSX/CSV → assignment)
 ═══════════════════════════════════════════════════════════ */
@@ -1534,7 +1732,6 @@ function setActiveNav(id) {
 ═══════════════════════════════════════════════ */
 async function renderTeacherHome() {
   setActiveNav("nav-assignments");
-  hideAutosavePill();
   mc().innerHTML = `
     <div class="page-header">
       <div><h1 class="page-title">Assignments</h1><p class="page-sub">Create and manage AI-powered reading tasks</p></div>
@@ -1544,25 +1741,55 @@ async function renderTeacherHome() {
       </div>
     </div>
     <div id="asgn-grid"><div class="loading-spinner"></div></div>`;
-
+ 
   const q = query(collection(db,"assignments"), where("teacherId","==",user.uid));
   const snp = await getDocs(q);
   const grid = $("asgn-grid");
   if (snp.empty) {
-    grid.innerHTML =`<div class="empty-state"><div class="empty-icon">📄</div><p>No assignments yet. Create your first one!</p></div>`;
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📄</div><p>No assignments yet. Create your first one!</p></div>`;
     return;
   }
+ 
+  // Fetch all responses and progress for this teacher (single batched query)
+  const [respSnp, progSnp] = await Promise.all([
+    getDocs(query(collection(db,"responses"), where("teacherId","==",user.uid))),
+    getDocs(query(collection(db,"progress"),  where("teacherId","==",user.uid)))
+  ]);
+  const doneCounts = {};
+  const inProgressCounts = {};
+  respSnp.forEach(r => {
+    const aid = r.data().assignmentId;
+    doneCounts[aid] = (doneCounts[aid] || 0) + 1;
+  });
+  progSnp.forEach(p => {
+    const aid = p.data().assignmentId;
+    inProgressCounts[aid] = (inProgressCounts[aid] || 0) + 1;
+  });
+ 
   grid.className = "card-grid";
   grid.innerHTML = "";
   snp.forEach(d => {
     const a = d.data();
     const isBranching = a.type === "branching";
-    const branchCount = isBranching
-      ? (a.stories || []).reduce((sum, s) => sum + (s.branches || []).length, 0)
-      : 0;
     const summary = isBranching
-      ?`${(a.stories||[]).length} stories · ${branchCount} branches total`
-      :`${(a.questions||[]).length} questions`;
+      ? `${(a.stories||[]).length} stories · ${(a.branches||[]).length} learn-more options`
+      : `${(a.questions||[]).length} questions`;
+    const done = doneCounts[d.id] || 0;
+    const inProgress = inProgressCounts[d.id] || 0;
+    let respLine = "";
+    if (done > 0 || inProgress > 0) {
+      const parts = [];
+      if (done > 0) parts.push(`<strong>${done}</strong> done`);
+      if (inProgress > 0) parts.push(`<strong>${inProgress}</strong> in progress`);
+      respLine = `<p class="card-meta">📊 ${parts.join(" · ")}</p>`;
+    } else {
+      respLine = `<p class="card-meta" style="color:var(--ink3)">📊 No responses yet</p>`;
+    }
+    const created = a.createdAt?.toDate?.();
+    const createdLine = created
+      ? `<p class="card-meta">📅 ${created.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' })} · ${created.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}</p>`
+      : "";
+ 
     grid.innerHTML += `
       <div class="card">
         <div class="card-top">
@@ -1571,11 +1798,14 @@ async function renderTeacherHome() {
         </div>
         <p class="card-title">${escapeHTML(a.title)}</p>
         <p class="card-excerpt">${escapeHTML((a.passage||a.intro||"").substring(0,90))}…</p>
+        ${respLine}
+        ${createdLine}
         <p class="card-meta">Posted to: ${(a.classNames||[]).join(", ")||"No classes"}</p>
         <div class="card-actions">
           <button class="btn btn-ghost" onclick="renderResponses('${d.id}','${a.title.replace(/'/g,"\\'")}')">📊 Responses</button>
           <button class="btn btn-ghost" onclick="renderEditAssignment('${d.id}')">✏️ Edit</button>
           <button class="btn btn-ghost" onclick="duplicateAssignment('${d.id}')">🔁 Duplicate</button>
+          <button class="btn btn-ghost" onclick="exportAssignmentXLSX('${d.id}')">📤 Export</button>
           <button class="btn btn-danger btn-ghost" onclick="deleteAssignment('${d.id}')">🗑</button>
         </div>
       </div>`;
@@ -1641,7 +1871,7 @@ function renderLinearForm(id, d, classes) {
       <div id="prompt-l3"></div>
 
       <label class="field-label">Post to Google Classroom Classes</label>
-      ${renderClassCheckboxes(classes, d.classIds||[])}
+      ${renderClassCheckboxes(classes, d.classIds||[], d.studentTargetsHistorical ? Object.fromEntries(Object.entries(d.studentTargetsHistorical).map(([cid, hist]) => [cid, { historical: hist, selected: (d.studentTargets && d.studentTargets[cid]) || [] }])) : null)}
 
       <div class="form-actions">
         <button class="btn btn-secondary" onclick="renderTeacherHome()">Cancel</button>
@@ -1699,7 +1929,7 @@ window.saveLinear = async (existingId) => {
     await resolvePromptSelection("layer3", promptCfg.layer3)
   ].filter(Boolean).join("\n\n");
 
-  const { classIds, classNames } = readClassChecks();
+  const { classIds, classNames, studentTargets, studentTargetsHistorical } = readClassChecks();
   const payload = {
     type:"linear", title, passage,
     subject:      $("f-subject").value.trim(),
@@ -1707,6 +1937,8 @@ window.saveLinear = async (existingId) => {
     promptCfg,
     instructions: resolvedInstructions,
     classIds, classNames,
+    studentTargets,
+    studentTargetsHistorical,
     teacherId:    user.uid,
     teacherName:  user.displayName,
     updatedAt:    serverTimestamp()
@@ -1765,7 +1997,7 @@ function renderBranchingForm(id, d, classes) {
       </div>
 
       <label class="field-label">Post to Google Classroom Classes</label>
-      ${renderClassCheckboxes(classes, d.classIds || [])}
+      ${renderClassCheckboxes(classes, d.classIds||[], d.studentTargetsHistorical ? Object.fromEntries(Object.entries(d.studentTargetsHistorical).map(([cid, hist]) => [cid, { historical: hist, selected: (d.studentTargets && d.studentTargets[cid]) || [] }])) : null)}
 
       <div class="form-actions">
         <button class="btn btn-secondary" onclick="renderTeacherHome()">Cancel</button>
@@ -2063,7 +2295,7 @@ window.saveBranching = async (existingId) => {
     await resolvePromptSelection("layer3", promptCfg.layer3)
   ].filter(Boolean).join("\n\n");
 
-  const { classIds, classNames } = readClassChecks();
+  const { classIds, classNames, studentTargets, studentTargetsHistorical } = readClassChecks();
   const payload = {
     type: "branching", title,
     subject: $("f-subject").value.trim(),
@@ -2073,6 +2305,8 @@ window.saveBranching = async (existingId) => {
     stories,
     requiredStories: reqStories,
     classIds, classNames,
+    studentTargets,
+    studentTargetsHistorical,
     teacherId: user.uid,
     teacherName: user.displayName,
     updatedAt: serverTimestamp()
@@ -2080,23 +2314,173 @@ window.saveBranching = async (existingId) => {
   await commonSaveAndPost(existingId, payload);
 };
 
-function renderClassCheckboxes(classes, selected) {
+function renderClassCheckboxes(classes, selectedClassIds, savedStudentTargets) {
+  // selectedClassIds: array of course IDs that should be pre-checked
+  // savedStudentTargets: optional map { courseId: { selected: [uid,...], historical: [{userId, name, email},...] } }
+  //   if present for a class, we pre-expand and pre-check those students
+
+  if (!classes || classes.length === 0) {
+    return `<div class="class-checkboxes" id="class-checks">
+      <p style="color:var(--ink3);font-size:.85rem">⚠️ No classes found — make sure your Apps Script URL is set and you've granted access.</p>
+    </div>`;
+  }
+
+  const targets = savedStudentTargets || {};
+
   return `<div class="class-checkboxes" id="class-checks">
-    ${classes.length === 0
-      ?`<p style="color:var(--ink3);font-size:.85rem">⚠️ No classes found — make sure your Apps Script URL is set and you've granted access.</p>`
-      : classes.map(c => `
-        <label class="class-checkbox">
-          <input type="checkbox" value="${c.id}" data-name="${escapeHTML(c.name)}" ${(selected||[]).includes(c.id)?"checked":""}/>
-          <label>${escapeHTML(c.name)} <span style="color:var(--ink3);font-size:.8rem">(${escapeHTML(c.section||"")})</span></label>
-        </label>`).join("")}
+    ${classes.map(c => {
+      const isChecked = (selectedClassIds||[]).includes(c.id);
+      const t = targets[c.id];
+      const isExpanded = !!t;
+      return `<div class="class-picker-item" data-course-id="${c.id}" data-course-name="${escapeAttr(c.name)}" data-historical='${escapeAttr(JSON.stringify(t?.historical || []))}' data-selected-students='${escapeAttr(JSON.stringify(t?.selected || []))}'>
+        <div class="class-picker-row">
+          <input type="checkbox" class="class-check" value="${c.id}" data-name="${escapeAttr(c.name)}" ${isChecked?"checked":""} onchange="handleClassCheckChange(this)"/>
+          <span class="class-picker-name">${escapeHTML(c.name)} <span style="color:var(--ink3);font-size:.8rem">${c.section?"("+escapeHTML(c.section)+")":""}</span></span>
+          <span class="class-picker-summary" data-summary>${t && t.selected && t.selected.length > 0 ? t.selected.length + ' student' + (t.selected.length>1?'s':'') + ' selected' : 'Whole class'}</span>
+          <button type="button" class="class-picker-toggle ${isExpanded?'open':''}" onclick="toggleClassExpand(this)">▶</button>
+        </div>
+        <div class="class-picker-students" style="display:${isExpanded?'block':'none'}"></div>
+      </div>`;
+    }).join("")}
   </div>`;
 }
+
+window.toggleClassExpand = async (btn) => {
+  const item = btn.closest(".class-picker-item");
+  const studentsDiv = item.querySelector(".class-picker-students");
+  const isOpen = btn.classList.contains("open");
+
+  if (isOpen) {
+    // Collapse
+    btn.classList.remove("open");
+    studentsDiv.style.display = "none";
+    return;
+  }
+
+  // Expand
+  btn.classList.add("open");
+  studentsDiv.style.display = "block";
+
+  // If already loaded, don't re-fetch
+  if (studentsDiv.dataset.loaded === "true") return;
+
+  studentsDiv.innerHTML = `<div class="loading">Loading roster…</div>`;
+  const courseId = item.dataset.courseId;
+  const historical = JSON.parse(item.dataset.historical || "[]");
+  const preselected = new Set(JSON.parse(item.dataset.selectedStudents || "[]"));
+
+  try {
+    const url = `${APPS_SCRIPT_URL}?action=getStudents&courseId=${encodeURIComponent(courseId)}&token=${encodeURIComponent(gToken||"")}`;
+    const r = await fetch(url);
+    const j = await r.json();
+    const students = j.students || [];
+
+    // Build a set of current students' userIds
+    const currentIds = new Set(students.map(s => s.userId));
+    // Identify "removed" historical students who were selected but no longer in roster
+    const removedStudents = historical.filter(h => !currentIds.has(h.userId));
+
+    let html = `<label class="all-toggle"><input type="checkbox" class="all-students-toggle" onchange="toggleAllStudents(this)"/> <span>Select all in this class</span></label>`;
+
+    // Current students
+    students.forEach(s => {
+      const checked = preselected.has(s.userId) ? "checked" : "";
+      html += `<label>
+        <input type="checkbox" class="student-check" value="${s.userId}" data-name="${escapeAttr(s.name)}" data-email="${escapeAttr(s.email)}" ${checked}/>
+        <span>${escapeHTML(s.name)}</span>
+      </label>`;
+    });
+
+    // Historical students who are no longer in the roster (grayed out)
+    removedStudents.forEach(s => {
+      html += `<label class="inactive">
+        <input type="checkbox" class="student-check" value="${s.userId}" data-name="${escapeAttr(s.name)}" data-email="${escapeAttr(s.email)}" data-historical="true" checked/>
+        <span>${escapeHTML(s.name)}</span>
+      </label>`;
+    });
+
+    if (students.length === 0 && removedStudents.length === 0) {
+      html += `<p style="color:var(--ink3);font-size:.85rem">No students in this class yet.</p>`;
+    }
+
+    studentsDiv.innerHTML = html;
+    studentsDiv.dataset.loaded = "true";
+
+    // Update summary whenever any student checkbox changes
+    studentsDiv.querySelectorAll(".student-check").forEach(cb => {
+      cb.addEventListener("change", () => updateClassSummary(item));
+    });
+    updateClassSummary(item);
+  } catch(e) {
+    studentsDiv.innerHTML = `<p style="color:var(--warn);font-size:.85rem">Couldn't load students: ${escapeHTML(e.message)}</p>`;
+  }
+};
+
+window.handleClassCheckChange = (cb) => {
+  // If the teacher just unchecked the class, clear all student selections within it
+  if (!cb.checked) {
+    const item = cb.closest(".class-picker-item");
+    item.querySelectorAll(".student-check").forEach(s => {
+      if (!s.dataset.historical) s.checked = false;
+    });
+    const allToggle = item.querySelector(".all-students-toggle");
+    if (allToggle) allToggle.checked = false;
+    updateClassSummary(item);
+  }
+};
+window.toggleAllStudents = (cb) => {
+  const studentsDiv = cb.closest(".class-picker-students");
+  studentsDiv.querySelectorAll(".student-check").forEach(s => {
+    if (!s.dataset.historical) s.checked = cb.checked;
+  });
+  updateClassSummary(cb.closest(".class-picker-item"));
+};
+
+function updateClassSummary(item) {
+  const summary = item.querySelector("[data-summary]");
+  const classCheck = item.querySelector(".class-check");
+  const checked = item.querySelectorAll(".student-check:checked");
+  if (!summary) return;
+
+  // If any students are checked, auto-check the class
+  if (checked.length > 0 && classCheck && !classCheck.checked) {
+    classCheck.checked = true;
+  }
+
+  if (checked.length === 0) {
+    summary.textContent = "Whole class";
+  } else {
+    summary.textContent = `${checked.length} student${checked.length>1?'s':''} selected`;
+  }
+}
 function readClassChecks() {
-  const checks = document.querySelectorAll('#class-checks input[type=checkbox]:checked');
-  return {
-    classIds:   Array.from(checks).map(c=>c.value),
-    classNames: Array.from(checks).map(c=>c.dataset.name)
-  };
+  const items = document.querySelectorAll('#class-checks .class-picker-item');
+  const classIds = [];
+  const classNames = [];
+  const studentTargets = {};
+  const studentTargetsHistorical = {};
+
+  items.forEach(item => {
+    const classCheck = item.querySelector(".class-check");
+    if (!classCheck || !classCheck.checked) return;
+    const courseId = classCheck.value;
+    classIds.push(courseId);
+    classNames.push(classCheck.dataset.name);
+
+    // Are any specific students selected?
+    const studentChecks = item.querySelectorAll(".student-check:checked");
+    if (studentChecks.length > 0) {
+      studentTargets[courseId] = Array.from(studentChecks).map(s => s.value);
+      // Save name/email for historical display next time
+      studentTargetsHistorical[courseId] = Array.from(studentChecks).map(s => ({
+        userId: s.value,
+        name:   s.dataset.name,
+        email:  s.dataset.email
+      }));
+    }
+  });
+
+  return { classIds, classNames, studentTargets, studentTargetsHistorical };
 }
 
 async function commonSaveAndPost(existingId, payload) {
@@ -2121,7 +2505,8 @@ async function commonSaveAndPost(existingId, payload) {
           title: payload.title,
           description:`Complete this AI-powered reading assignment: ${assignmentUrl}`,
           url: assignmentUrl,
-          classIds: payload.classIds
+          classIds: payload.classIds,
+          studentTargets: payload.studentTargets || {}
         })
       });
       toast("Published to Google Classroom ✓");
@@ -3074,13 +3459,22 @@ async function getAIFeedback(studentAnswer, attempt = 1) {
     });
 
     try {
+        // followUpRound starts at 0 for the FIRST submission and increments after each.
+        // currentRound (1-indexed) = followUpRound + 1, since we're calling AI for round followUpRound+1.
+        const currentRound = followUpRound + 1;
+        const maxRounds = MAX_ROUNDS_FOR_Q || 5;
+        const isFinalRound = currentRound >= maxRounds;
+ 
         const resp = await fetch(APPS_SCRIPT_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
                 action: "getAIFeedback",
                 systemPrompt,
-                messages: conversationHistory
+                messages: conversationHistory,
+                currentRound,
+                maxRounds,
+                isFinalRound
             })
         });
         const data = await resp.json();
