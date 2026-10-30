@@ -501,6 +501,39 @@
     white-space:pre-wrap; word-break:break-all;
   }
 
+  .background-box {
+    background:#e8f4ee; border-radius:var(--radius); padding:14px 20px; margin-bottom:12px;
+    font-size:.92rem; line-height:1.6; color:var(--ink);
+  }
+
+  /* Graded answers: score ring, feedback, hints */
+  .grade-panel {
+    display:flex; gap:20px; align-items:center; background:var(--surface);
+    border:1.5px solid var(--border); border-radius:var(--radius); padding:18px 22px;
+    margin:16px 0; animation:fadeIn .3s ease;
+  }
+  .grade-panel.care { background:#f0f7f4; border-color:var(--accent2); }
+  .score-ring { width:112px; height:112px; flex-shrink:0; }
+  .score-ring-num { font:600 21px 'DM Sans',sans-serif; fill:var(--ink); }
+  .score-ring-goal { font:500 9px 'DM Sans',sans-serif; fill:var(--ink3); }
+  .grade-feedback { flex:1; font-size:.93rem; line-height:1.6; }
+  .grade-feedback p + p { margin-top:6px; }
+  .grade-headline { font-family:'Lora',serif; font-size:1.08rem; font-weight:600; color:var(--ink); }
+  .grade-sub { font-size:.82rem; color:var(--ink3); }
+  .bonus-label { color:#d97706; }
+  .help-notes { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
+  .help-note {
+    background:#fdfcf8; border:1px dashed #d4d0c5; border-radius:8px;
+    padding:10px 14px; font-size:.9rem; line-height:1.55;
+  }
+  .help-note-label { display:block; font-size:.74rem; font-weight:700; color:#d97706; text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
+  .answer-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  .answer-actions .btn-primary:last-child { margin-left:auto; }
+  .earlier-tries { margin-top:20px; font-size:.88rem; }
+  .earlier-tries summary { cursor:pointer; color:var(--ink2); font-weight:600; }
+  .earlier-try { margin-top:10px; }
+  .earlier-try-fb { color:var(--ink2); font-style:italic; margin-top:-4px; }
+
   @media (max-width:640px) {
     .sidebar { display:none; }
     .main-content { padding:20px 16px; }
@@ -508,6 +541,9 @@
     .passage-box { padding:18px; }
     .type-picker { grid-template-columns:1fr; }
     .autosave-pill { top:auto; bottom:80px; right:16px; }
+    .grade-panel { flex-direction:column; align-items:flex-start; padding:16px; }
+    .answer-actions .btn { flex:1 1 auto; justify-content:center; }
+    .answer-actions .btn-primary:last-child { margin-left:0; }
   }
 </style>
 </head>
@@ -581,11 +617,7 @@ const db    = getFirestore(fbApp);
 const gp = new GoogleAuthProvider();
 gp.setCustomParameters({ prompt: "select_account" });
 
-const gpTeacher = new GoogleAuthProvider();
-gpTeacher.addScope("https://www.googleapis.com/auth/classroom.coursework.students");
-gpTeacher.addScope("https://www.googleapis.com/auth/classroom.courses.readonly");
-
-let user=null, role=null, gToken=null;
+let user=null, role=null;
 let curAssignment=null;
 let session=[];
 let qIndex=0;
@@ -596,6 +628,23 @@ let autosaveTimer=null;
 
 const $  = id => document.getElementById(id);
 const mc = () => $("main-content");
+
+/**
+ * POST to the Apps Script backend with the signed-in user's Firebase ID token.
+ * The backend rejects any request without a valid token. text/plain avoids a
+ * CORS preflight, which Apps Script can't answer.
+ */
+async function callBackend(action, body = {}) {
+  const idToken = await auth.currentUser.getIdToken();
+  const r = await fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, idToken, ...body })
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+}
 
 function toast(msg, isError=false) {
   const t = $("toast");
@@ -1100,8 +1149,14 @@ window.exportAssignmentXLSX = async (assignmentId) => {
     const headers = [
       "Type","Story ID","Branch ID","Order","Title","Body / Passage",
       "Image URL","Video URL","Transcript","Max Rounds","AI Goal",
-      "Layer 2 Preset","Required Stories","Required Branches","Subject Tag"
+      "Layer 2 Preset","Required Stories","Required Branches","Subject Tag",
+      "Background","Kind","Tier","Anchors","Look-Fors","Hints","Target","Required Core","Section Word"
     ];
+    // Grading columns for a question row (positions 16–22 above).
+    const gradingCols = q => (q && typeof q === "object") ? [
+      "", q.kind || "", q.tier || "", (q.anchors || []).join(", "),
+      (q.lookFors || []).join("\n"), (q.hints || []).join("\n"), q.target || ""
+    ] : [];
     const rows = [headers];
  
     // Helper to lookup preset id (for Layer 2)
@@ -1118,7 +1173,9 @@ window.exportAssignmentXLSX = async (assignmentId) => {
         layer2Default,
         a.requiredStories || 1,
         "",
-        a.subject || ""
+        a.subject || "",
+        "", "", "", "", "", "", "", "",
+        a.storyWord && a.storyWord !== "story" ? a.storyWord : ""
       ]);
       // Stories
       (a.stories || []).forEach((s, sIdx) => {
@@ -1137,7 +1194,8 @@ window.exportAssignmentXLSX = async (assignmentId) => {
           "",  // Layer 2 preset for story (we don't preserve the ID here, only instructions text)
           "",
           s.requiredBranches || 0,
-          ""
+          "",
+          s.background || ""
         ]);
         // Story questions
         (s.questions || []).forEach((q, qIdx) => {
@@ -1152,7 +1210,8 @@ window.exportAssignmentXLSX = async (assignmentId) => {
             q.maxRounds || 5,
             q.instructions || "",
             "",
-            "", "", ""
+            "", "", "",
+            ...gradingCols(q)
           ]);
         });
         // Story branches
@@ -1182,7 +1241,8 @@ window.exportAssignmentXLSX = async (assignmentId) => {
               q.maxRounds || 5,
               q.instructions || "",
               "",
-              "", "", ""
+              "", "", "",
+              ...gradingCols(q)
             ]);
           });
         });
@@ -1192,12 +1252,14 @@ window.exportAssignmentXLSX = async (assignmentId) => {
       rows.push([
         "assignment", "", "", "",
         a.title || "",
-        a.passage || "",
+        a.intro || "",
         "", "", "", "", "",
         layer2Default,
         1,
         "",
-        a.subject || ""
+        a.subject || "",
+        "", "", "", "", "", "", "",
+        a.requiredCore || ""
       ]);
       (a.questions || []).forEach((q, qIdx) => {
         const text = typeof q === "string" ? q : q.text;
@@ -1213,13 +1275,15 @@ window.exportAssignmentXLSX = async (assignmentId) => {
           maxR,
           "",
           "",
-          "", "", ""
+          "", "", "",
+          ...gradingCols(q)
         ]);
       });
       // For linear, add a single "story" row to anchor the questions
       rows.splice(2, 0, [
         "story", "main", "", 1, a.title || "", a.passage || "",
-        "", "", "", "", "", "", "", 0, ""
+        "", "", "", "", "", "", "", 0, "",
+        a.background || ""
       ]);
     }
  
@@ -1231,7 +1295,8 @@ window.exportAssignmentXLSX = async (assignmentId) => {
     ws['!cols'] = [
       { wch:14 }, { wch:14 }, { wch:14 }, { wch:8 }, { wch:30 }, { wch:50 },
       { wch:24 }, { wch:24 }, { wch:30 }, { wch:11 }, { wch:35 },
-      { wch:24 }, { wch:16 }, { wch:18 }, { wch:14 }
+      { wch:24 }, { wch:16 }, { wch:18 }, { wch:14 },
+      { wch:40 }, { wch:11 }, { wch:8 }, { wch:14 }, { wch:45 }, { wch:45 }, { wch:8 }, { wch:13 }
     ];
  
     XLSX.utils.book_append_sheet(wb, ws, "Template");
@@ -1315,6 +1380,34 @@ function getCol(row, ...names) {
   return "";
 }
 
+/**
+ * Grading columns on a question row (all optional): Kind, Tier, Anchors,
+ * Look-Fors and Hints (one per line), Target. Returns only what's filled in.
+ */
+function readGradingFields(row, rowNum, errors) {
+  const lines = v => v.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const out = {};
+  const kind = getCol(row, "Kind").toLowerCase();
+  if (kind) {
+    if (!["observe","interpret","apply"].includes(kind)) errors.push(`Row ${rowNum}: Kind must be observe, interpret or apply.`);
+    else out.kind = kind;
+  }
+  const tier = getCol(row, "Tier").toLowerCase();
+  if (tier) {
+    if (!["core","bonus"].includes(tier)) errors.push(`Row ${rowNum}: Tier must be core or bonus.`);
+    else out.tier = tier;
+  }
+  const anchors = getCol(row, "Anchors");
+  if (anchors) out.anchors = anchors.split(",").map(x => x.trim()).filter(Boolean);
+  const lookFors = getCol(row, "Look-Fors", "Look Fors", "LookFors");
+  if (lookFors) out.lookFors = lines(lookFors);
+  const hints = getCol(row, "Hints");
+  if (hints) out.hints = lines(hints).slice(0, 3);
+  const target = parseInt(getCol(row, "Target"), 10);
+  if (target) out.target = Math.max(40, Math.min(95, target));
+  return out;
+}
+
 function parseAndPreview(rows) {
   const errors = [];
   const warnings = [];
@@ -1337,7 +1430,11 @@ function parseAndPreview(rows) {
         intro:           getCol(row, "Body / Passage", "Body", "Passage"),
         subject:         getCol(row, "Subject Tag", "Subject"),
         defaultLayer2:   getCol(row, "Layer 2 Preset"),
-        requiredStories: parseInt(getCol(row, "Required Stories"), 10) || 1
+        requiredStories: parseInt(getCol(row, "Required Stories"), 10) || 1,
+        tutorNotes:      getCol(row, "AI Goal"),
+        background:      getCol(row, "Background"),
+        requiredCore:    parseInt(getCol(row, "Required Core"), 10) || 0,
+        storyWord:       getCol(row, "Section Word").toLowerCase()
       };
       if (!assignmentRow.title) errors.push(`Row ${rowNum}: Assignment row missing Title.`);
     }
@@ -1355,6 +1452,7 @@ function parseAndPreview(rows) {
         transcript:   getCol(row, "Transcript"),
         instructions: getCol(row, "Layer 2 Preset"),
         requiredBranches: parseInt(getCol(row, "Required Branches"), 10) || 0,
+        background:   getCol(row, "Background"),
         questions:    [],
         branches:     []
       };
@@ -1372,7 +1470,8 @@ function parseAndPreview(rows) {
         order:     parseInt(getCol(row, "Order"), 10) || 99,
         maxRounds: parseInt(getCol(row, "Max Rounds"), 10) || 5,
         aiGoal:    getCol(row, "AI Goal"),
-        layer2:    getCol(row, "Layer 2 Preset")
+        layer2:    getCol(row, "Layer 2 Preset"),
+        ...readGradingFields(row, rowNum, errors)
       };
       if (!storiesById[storyId]) {
         orphanQs.push({ rowNum, storyId, type, q });
@@ -1416,7 +1515,8 @@ function parseAndPreview(rows) {
         order:     parseInt(getCol(row, "Order"), 10) || 99,
         maxRounds: parseInt(getCol(row, "Max Rounds"), 10) || 5,
         aiGoal:    getCol(row, "AI Goal"),
-        layer2:    getCol(row, "Layer 2 Preset")
+        layer2:    getCol(row, "Layer 2 Preset"),
+        ...readGradingFields(row, rowNum, errors)
       };
       const s = storiesById[storyId];
       if (!s) {
@@ -1504,7 +1604,7 @@ function renderImportPreview(assignmentRow, stories, errors, warnings) {
       s.questions.forEach((q,i) => {
         html += `<tr class="row-question">
           <td style="padding-left:30px">└ Q${i+1}</td>
-          <td colspan="2" class="truncate-cell">${escapeHTML(q.text)}</td>
+          <td colspan="2" class="truncate-cell">${q.kind ? `<span class="tag ${q.tier === "bonus" ? "amber" : ""}" style="margin-right:6px">${q.kind}${q.tier ? " · " + q.tier : ""}</span>` : ""}${escapeHTML(q.text)}</td>
         </tr>`;
       });
       s.branches.forEach(b => {
@@ -1516,7 +1616,7 @@ function renderImportPreview(assignmentRow, stories, errors, warnings) {
         b.questions.forEach((q,i) => {
           html += `<tr class="row-question">
             <td style="padding-left:50px">└ Q${i+1}</td>
-            <td colspan="2" class="truncate-cell">${escapeHTML(q.text)}</td>
+            <td colspan="2" class="truncate-cell">${q.kind ? `<span class="tag ${q.tier === "bonus" ? "amber" : ""}" style="margin-right:6px">${q.kind}${q.tier ? " · " + q.tier : ""}</span>` : ""}${escapeHTML(q.text)}</td>
           </tr>`;
         });
       });
@@ -1580,7 +1680,7 @@ window.saveBulkImport = async (assignmentRow, stories, appendMode) => {
 
     // Build resolved assignment-level instructions
     const l1 = await resolvePromptSelection("layer1", "builtin-l1-standard");
-    const resolvedInstructions = [l1, defaultLayer2Text].filter(Boolean).join("\n\n");
+    const resolvedInstructions = [l1, defaultLayer2Text, assignmentRow.tutorNotes].filter(Boolean).join("\n\n");
 
     // Check for existing assignment with same title (if append mode)
     let existingId = null;
@@ -1625,6 +1725,33 @@ window.saveBulkImport = async (assignmentRow, stories, appendMode) => {
       }, { merge: true });
 
       toast(`Appended ${newStories.length} new stor${newStories.length===1?'y':'ies'} ✓`);
+    } else if (stories.length === 1 && stories[0].branches.length === 0) {
+      // One passage, no branches (e.g. a slow reading) → a linear assignment
+      const s = stories[0];
+      const coreCount = s.questions.filter(q => (q.tier || "core") === "core").length;
+      await addDoc(collection(db,"assignments"), {
+        type: "linear",
+        title: assignmentRow.title,
+        subject: assignmentRow.subject,
+        intro: assignmentRow.intro,
+        background: s.background || assignmentRow.background || "",
+        passage: s.passage,
+        questions: s.questions,
+        requiredCore: Math.min(assignmentRow.requiredCore || coreCount, coreCount),
+        promptCfg: {
+          layer1: "builtin-l1-standard",
+          layer2: assignmentRow.defaultLayer2 ? [assignmentRow.defaultLayer2] : [],
+          layer3: ""
+        },
+        instructions: [resolvedInstructions, s.instructions].filter(Boolean).join("\n\n"),
+        classIds: [],
+        classNames: [],
+        teacherId: user.uid,
+        teacherName: user.displayName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast("Assignment created ✓ — edit it to choose classes and publish.");
     } else {
       // CREATE NEW
       const payload = {
@@ -1642,6 +1769,7 @@ window.saveBulkImport = async (assignmentRow, stories, appendMode) => {
         branches: [], // legacy field, not used in per-story branching
         requiredStories: assignmentRow.requiredStories,
         requiredBranches: 0,
+        storyWord: assignmentRow.storyWord || "story",
         classIds: [],
         classNames: [],
         teacherId: user.uid,
@@ -1675,7 +1803,6 @@ async function resolvePromptSelection(layer, value) {
 window.signIn = async () => {
   try {
     await signInWithPopup(auth, gp);
-    gToken = null;
   } catch(e) { toast(e.message, true); }
 };
 window.signOutUser = async () => { await signOut(auth); };
@@ -1800,7 +1927,7 @@ async function renderTeacherHome() {
         <p class="card-excerpt">${escapeHTML((a.passage||a.intro||"").substring(0,90))}…</p>
         ${respLine}
         ${createdLine}
-        <p class="card-meta">Posted to: ${(a.classNames||[]).join(", ")||"No classes"}</p>
+        <p class="card-meta">Posted to: ${(a.classNames||[]).join(", ") || "No classes — <strong>hidden from students</strong> (draft)"}</p>
         <div class="card-actions">
           <button class="btn btn-ghost" onclick="renderResponses('${d.id}','${a.title.replace(/'/g,"\\'")}')">📊 Responses</button>
           <button class="btn btn-ghost" onclick="renderEditAssignment('${d.id}')">✏️ Edit</button>
@@ -1860,7 +1987,7 @@ function renderLinearForm(id, d, classes) {
 
       <label class="field-label">Questions <span style="color:var(--ink3);font-weight:400">(students answer each in turn)</span></label>
       <div id="q-container">
-        ${normalized.map((q,i)=>linearQuestionRow(i,q.text,q.maxRounds)).join("")}
+        ${normalized.map((q,i)=>linearQuestionRow(i,q.text,q.maxRounds,gradingExtras(q))).join("")}
       </div>
       <button class="btn btn-ghost mt-sm" onclick="addLinearQuestion()">+ Add Question</button>
 
@@ -1885,10 +2012,26 @@ function renderLinearForm(id, d, classes) {
   renderPromptLayerSelector("prompt-l3", "layer3", false, promptCfg.layer3);
 }
 
-function linearQuestionRow(i, val="", rounds=5) {
+/**
+ * Grading fields on a question (kind, look-fors, hints…) aren't editable in
+ * these forms yet, so each row carries them in data-extra and save puts them back.
+ */
+function gradingExtras(q) {
+  const out = {};
+  ["kind","tier","anchors","lookFors","hints","target"].forEach(k => { if (q && q[k] != null) out[k] = q[k]; });
+  return out;
+}
+function gradingTag(extra) {
+  return extra.kind ? `<span class="tag ${extra.tier === "bonus" ? "amber" : ""}" title="${escapeAttr((extra.lookFors||[]).join(" · "))}">${extra.kind}${extra.tier ? " · " + extra.tier : ""}</span>` : "";
+}
+function readRowExtra(row) {
+  try { return JSON.parse(row?.dataset.extra || "{}"); } catch(_) { return {}; }
+}
+
+function linearQuestionRow(i, val="", rounds=5, extra={}) {
   const opts = [1,2,3,4,5].map(n =>`<option value="${n}" ${rounds==n?'selected':''}>${n} round${n>1?'s':''}</option>`).join("");
-  return `<div class="question-row" id="qrow-${i}">
-    <span class="q-num">${i+1}.</span>
+  return `<div class="question-row" id="qrow-${i}" data-extra='${escapeAttr(JSON.stringify(extra))}'>
+    <span class="q-num">${i+1}.</span>${gradingTag(extra)}
     <input class="q-input" id="q-${i}" value="${escapeHTML(val)}" placeholder="Question ${i+1}…"/>
     <select class="q-rounds" id="qr-${i}" title="Max coaching rounds">${opts}</select>
     <button class="btn-icon" onclick="removeLinearQuestion(${i})" title="Remove">✕</button>
@@ -1910,7 +2053,7 @@ window.saveLinear = async (existingId) => {
     const t = inp.value.trim();
     if (t) {
       const r = parseInt(document.querySelectorAll(".q-rounds")[idx].value, 10) || 5;
-      qs.push({ text:t, maxRounds:r });
+      qs.push({ ...readRowExtra(inp.closest(".question-row")), text:t, maxRounds:r });
     }
   });
   if (!qs.length) { toast("Add at least one question.", true); return; }
@@ -2065,7 +2208,7 @@ function storyBlock(idx, s) {
 
       <label class="field-label">Questions</label>
       <div class="s-questions">
-        ${(s.questions || [{ text: "", maxRounds: 5 }]).map((q, qi) => qRow("s", idx, qi, q.text, q.maxRounds)).join("")}
+        ${(s.questions || [{ text: "", maxRounds: 5 }]).map((q, qi) => qRow("s", idx, qi, q.text, q.maxRounds, gradingExtras(q))).join("")}
       </div>
       <button class="btn btn-ghost mt-sm" onclick="addQ('s', ${idx})">+ Add Question</button>
 
@@ -2116,7 +2259,7 @@ function nestedBranchBlock(storyIdx, branchIdx, b) {
 
       <label class="field-label">Questions</label>
       <div class="nb-questions">
-        ${(b.questions || [{ text: "", maxRounds: 5 }]).map((q, qi) => qRow("nb",`${storyIdx}-${branchIdx}`, qi, q.text, q.maxRounds)).join("")}
+        ${(b.questions || [{ text: "", maxRounds: 5 }]).map((q, qi) => qRow("nb",`${storyIdx}-${branchIdx}`, qi, q.text, q.maxRounds, gradingExtras(q))).join("")}
       </div>
       <button class="btn btn-ghost mt-sm" onclick="addNestedQ(${storyIdx}, ${branchIdx})">+ Add Question</button>
 
@@ -2126,10 +2269,10 @@ function nestedBranchBlock(storyIdx, branchIdx, b) {
   </details>`;
 }
 
-function qRow(prefix, parentIdx, qi, text="", rounds=5) {
+function qRow(prefix, parentIdx, qi, text="", rounds=5, extra={}) {
   const opts = [1,2,3,4,5].map(n=>`<option value="${n}" ${rounds==n?'selected':''}>${n} round${n>1?'s':''}</option>`).join("");
-  return `<div class="question-row q-row-${prefix}-${parentIdx}-${qi}">
-    <span class="q-num">${qi+1}.</span>
+  return `<div class="question-row q-row-${prefix}-${parentIdx}-${qi}" data-extra='${escapeAttr(JSON.stringify(extra))}'>
+    <span class="q-num">${qi+1}.</span>${gradingTag(extra)}
     <input class="q-input qx" value="${escapeHTML(text)}" placeholder="Question ${qi+1}…"/>
     <select class="q-rounds qrx">${opts}</select>
     <button class="btn-icon" onclick="removeQ('${prefix}','${parentIdx}',${qi},this)" title="Remove">✕</button>
@@ -2238,7 +2381,7 @@ window.saveBranching = async (existingId) => {
     const qs = [];
     blk.querySelectorAll(".s-questions .question-row").forEach(row => {
       const t = row.querySelector(".qx").value.trim();
-      if (t) qs.push({ text: t, maxRounds: parseInt(row.querySelector(".qrx").value, 10) || 5 });
+      if (t) qs.push({ ...readRowExtra(row), text: t, maxRounds: parseInt(row.querySelector(".qrx").value, 10) || 5 });
     });
 
     const branches = [];
@@ -2252,7 +2395,7 @@ window.saveBranching = async (existingId) => {
       const bqs = [];
       bblk.querySelectorAll(".nb-questions .question-row").forEach(row => {
         const t = row.querySelector(".qx").value.trim();
-        if (t) bqs.push({ text: t, maxRounds: parseInt(row.querySelector(".qrx").value, 10) || 5 });
+        if (t) bqs.push({ ...readRowExtra(row), text: t, maxRounds: parseInt(row.querySelector(".qrx").value, 10) || 5 });
       });
 
       branches.push({
@@ -2370,9 +2513,7 @@ window.toggleClassExpand = async (btn) => {
   const preselected = new Set(JSON.parse(item.dataset.selectedStudents || "[]"));
 
   try {
-    const url = `${APPS_SCRIPT_URL}?action=getStudents&courseId=${encodeURIComponent(courseId)}&token=${encodeURIComponent(gToken||"")}`;
-    const r = await fetch(url);
-    const j = await r.json();
+    const j = await callBackend("getStudents", { courseId });
     const students = j.students || [];
 
     // Build a set of current students' userIds
@@ -2496,18 +2637,12 @@ async function commonSaveAndPost(existingId, payload) {
   if (payload.classIds.length && APPS_SCRIPT_URL && !APPS_SCRIPT_URL.startsWith("REPLACE")) {
     const assignmentUrl = window.location.href.split("?")[0] +`?a=${docId}`;
     try {
-      await fetch(APPS_SCRIPT_URL, {
-        method:"POST",
-        headers:{"Content-Type":"text/plain;charset=utf-8"},
-        body: JSON.stringify({
-          action:"postAssignment",
-          token:gToken,
-          title: payload.title,
-          description:`Complete this AI-powered reading assignment: ${assignmentUrl}`,
-          url: assignmentUrl,
-          classIds: payload.classIds,
-          studentTargets: payload.studentTargets || {}
-        })
+      await callBackend("postAssignment", {
+        title: payload.title,
+        description:`Complete this AI-powered reading assignment: ${assignmentUrl}`,
+        url: assignmentUrl,
+        classIds: payload.classIds,
+        studentTargets: payload.studentTargets || {}
       });
       toast("Published to Google Classroom ✓");
     } catch(e) { toast("Saved, but Classroom post failed.", true); }
@@ -2520,22 +2655,15 @@ async function commonSaveAndPost(existingId, payload) {
 async function fetchTeacherClasses() {
   if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.startsWith("REPLACE")) return [];
 
-  if (!gToken && role === "teacher") {
-    try {
-      const { reauthenticateWithPopup } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-      const result = await reauthenticateWithPopup(auth.currentUser, gpTeacher);
-      gToken = result._tokenResponse?.oauthAccessToken || null;
-    } catch(e) {
-      toast("Couldn't get Classroom access. " + e.message, true);
-      return [];
-    }
-  }
-
+  // The backend reads Classroom as the account that deployed it, so no
+  // separate Classroom sign-in popup is needed here.
   try {
-    const r = await fetch(`${APPS_SCRIPT_URL}?action=getClasses&token=${encodeURIComponent(gToken||"")}`);
-    const j = await r.json();
+    const j = await callBackend("getClasses");
     return j.classes || [];
-  } catch(e) { return []; }
+  } catch(e) {
+    toast("Couldn't load classes: " + e.message, true);
+    return [];
+  }
 }
 
 window.deleteAssignment = async id => {
@@ -2587,7 +2715,7 @@ window.renderResponses = async (assignmentId, title) => {
     logDebug("renderResponses start", { assignmentId, user: user?.uid });
 
     const snp = await fetchWithTimeout(
-      getDocs(query(collection(db,"responses"), where("assignmentId","==",assignmentId))),
+      getDocs(query(collection(db,"responses"), where("teacherId","==",user.uid), where("assignmentId","==",assignmentId))),
       15000,
       "Responses query"
     );
@@ -2673,7 +2801,7 @@ window.renderAllResponses = async () => {
       const batch = assignmentIds.slice(i, i + 10);
       debugInfo.push(`Fetching batch ${i/10 + 1}: ${batch.length} IDs`);
 
-      const respQuery = query(collection(db,"responses"), where("assignmentId","in",batch));
+      const respQuery = query(collection(db,"responses"), where("teacherId","==",user.uid), where("assignmentId","in",batch));
       const respSnap = await fetchWithTimeout(getDocs(respQuery), 15000,`Responses batch ${i/10 + 1}`);
 
       respSnap.forEach(d => {
@@ -2753,8 +2881,8 @@ window.showDetailModal = async (responseId) => {
       <div style="margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--border)">
         <p style="font-size:.78rem;font-weight:700;color:var(--ink3);text-transform:uppercase;margin-bottom:4px">${escapeHTML(s.context||"Q"+(i+1))}</p>
         <p style="font-family:'Lora',serif;margin-bottom:8px">${escapeHTML(s.question)}</p>
-        <p style="font-size:.85rem;color:var(--ink2);margin-bottom:4px">Student:</p>
-        <p style="margin-bottom:8px;font-size:.92rem">${escapeHTML(s.answer)}</p>
+        ${s.answer ? `<p style="font-size:.85rem;color:var(--ink2);margin-bottom:4px">Student${s.kind === "grade" ? ` · <strong style="color:${s.flagged ? "var(--warn)" : "var(--accent)"}">${s.flagged ? "⚠️ flagged" : s.score + "%"}</strong>` : ""}:</p>
+        <p style="margin-bottom:8px;font-size:.92rem">${escapeHTML(s.answer)}</p>` : ""}
         <p style="font-size:.85rem;color:var(--accent);font-style:italic;border-left:2px solid var(--accent2);padding-left:10px">${escapeHTML(s.feedback)}</p>
       </div>`).join("");
     document.body.insertAdjacentHTML("beforeend", `
@@ -2778,8 +2906,8 @@ window.closeModal = () => { const m = $("detail-modal"); if(m) m.remove(); };
 
 window.exportCSV = async (assignmentId) => {
   try {
-    const snp = await getDocs(query(collection(db,"responses"), where("assignmentId","==",assignmentId)));
-    let csv = "Student,Email,Date,Status,Context,Question,Answer,AI Feedback\n";
+    const snp = await getDocs(query(collection(db,"responses"), where("teacherId","==",user.uid), where("assignmentId","==",assignmentId)));
+    let csv = "Student,Email,Date,Status,Context,Question,Answer,Score,AI Feedback\n";
     snp.forEach(d => {
       const r = d.data();
       const dt = r.submittedAt?.toDate?.()?.toLocaleDateString() ||
@@ -2787,7 +2915,7 @@ window.exportCSV = async (assignmentId) => {
       const status = r.isDraft === true ? "In Progress" : "Completed";
       (r.session||[]).forEach(s => {
         const esc = v =>`"${(v||"").replace(/"/g,'""')}"`;
-        csv +=`${esc(r.studentName)},${esc(r.studentEmail)},${esc(dt)},${esc(status)},${esc(s.context||"")},${esc(s.question)},${esc(s.answer)},${esc(s.feedback)}\n`;
+        csv +=`${esc(r.studentName)},${esc(r.studentEmail)},${esc(dt)},${esc(status)},${esc(s.context||"")},${esc(s.question)},${esc(s.answer)},${esc(s.score != null ? String(s.score) : "")},${esc(s.feedback)}\n`;
       });
     });
     const a = document.createElement("a");
@@ -2830,8 +2958,12 @@ async function renderStudentHome() {
   progSnap.forEach(d => inProgressIds.add(d.data().assignmentId));
 
   list.innerHTML = "";
+  let shown = 0;
   snp.forEach(d => {
     const a = d.data();
+    // Not posted to any class yet = a draft. Students reach drafts only by direct link.
+    if (!(a.classIds || []).length) return;
+    shown++;
     const done = doneIds.has(d.id);
     const inProgress = inProgressIds.has(d.id) && !done;
     const icon = a.type === "branching" ? "🌿" : "📖";
@@ -2850,6 +2982,7 @@ async function renderStudentHome() {
         ${badge}
       </div>`;
   });
+  if (!shown) list.innerHTML = `<div class="empty-state"><div class="empty-icon">📚</div><p>No assignments yet.</p></div>`;
 }
 
 /* ═══════════════════════════════════════════════
@@ -2898,7 +3031,7 @@ function showResumePrompt(saved) {
     const j = saved.journey;
     const storiesDone = (j.storiesCompleted || []).length;
     const branchesDone = (j.branchesCompleted || []).length;
-    detail =`<strong>${storiesDone}</strong> stor${storiesDone===1?'y':'ies'} completed`;
+    detail =`<strong>${storiesDone}</strong> ${storyWords(curAssignment).n(storiesDone)} completed`;
     if (branchesDone > 0) detail +=` · <strong>${branchesDone}</strong> branch${branchesDone>1?'es':''} explored`;
     detail +=` · <strong>${exchangeCount}</strong> answer${exchangeCount===1?'':'s'} saved`;
   } else {
@@ -2985,22 +3118,18 @@ function renderLinearQuestion() {
         <summary style="cursor:pointer;font-weight:600;font-size:.9rem;color:var(--ink2);margin-bottom:8px;user-select:none">
           📄 Reading Passage ${qIndex>0?"(click to expand)":""}
         </summary>
+        ${a.background ? `<div class="background-box">${escapeHTML(a.background).replace(/\n/g,"<br/>")}</div>` : ""}
         <div class="passage-box">${escapeHTML(a.passage).replace(/\n/g,"<br/>")}</div>
       </details>
 
       <div class="question-box" style="margin-top:16px">
-        <p class="question-label">Question ${qIndex+1}</p>
+        <p class="question-label">Question ${qIndex+1}${getCurrentQuestion().tier === "bonus" ? ' · <span class="bonus-label">Bonus (optional)</span>' : ""}</p>
         <p class="question-text">${escapeHTML(q.text)}</p>
       </div>
 
-      <div id="ai-feedback-area"></div>
-
-      <textarea id="student-answer" class="answer-area" placeholder="Type your answer here…"></textarea>
-
-      <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap" id="action-row">
-        <button class="btn btn-primary" id="submit-btn" onclick="handleSubmit('first')">Submit Answer</button>
-      </div>
+      <div id="qa-area"></div>
     </div>`;
+  renderAnswerArea();
 }
 
 window.nextLinearQuestion = () => {
@@ -3013,6 +3142,14 @@ window.nextLinearQuestion = () => {
 /* ═══════════════════════════════════════════════
    STUDENT — BRANCHING FLOW
 ═══════════════════════════════════════════════ */
+/** "story"/"stories" for parables-style assignments, "section"/"sections" for unit reviews. */
+function storyWords(a) {
+  const one = (a && a.storyWord) || "story";
+  const many = one === "story" ? "stories" : one + "s";
+  const cap = w => w[0].toUpperCase() + w.slice(1);
+  return { one, many, One: cap(one), Many: cap(many), n: k => k === 1 ? one : many };
+}
+
 function renderStoryPicker() {
   journey.phase = "story-pick";
   journey.currentStoryId = null;
@@ -3022,13 +3159,16 @@ function renderStoryPicker() {
   const required = a.requiredStories || 1;
   const remaining = required - completed;
 
+  const W = storyWords(a);
   let progressMsg = "";
   if (completed === 0) {
-    progressMsg =`Choose one of ${a.stories.length} stories to begin. <strong>Complete ${required} stor${required>1?'ies':'y'}</strong> to finish this assignment.`;
+    progressMsg = required >= a.stories.length
+      ? `There are ${a.stories.length} ${W.many}. <strong>Complete all ${required}</strong>, in any order, to finish this assignment.`
+      : `Choose one of ${a.stories.length} ${W.many} to begin. <strong>Complete ${required} ${W.n(required)}</strong> to finish this assignment.`;
   } else if (remaining > 0) {
-    progressMsg =`Great work! <strong>${completed} of ${required}</strong> stor${required>1?'ies':'y'} complete. Choose another to continue.`;
+    progressMsg =`Great work! <strong>${completed} of ${required}</strong> ${W.many} complete. Choose another to continue.`;
   } else {
-    progressMsg =`You've completed all required stories! 🎉`;
+    progressMsg =`You've completed all required ${W.many}! 🎉`;
   }
 
   const cardsHTML = a.stories.map(s => {
@@ -3069,7 +3209,7 @@ function renderStoryPicker() {
            </div>`
         : ""}
 
-      <h3 style="margin-bottom:14px;font-family:'Lora',serif;font-size:1.15rem">${remaining<=0?"Stories":"Choose Your Story"}</h3>
+      <h3 style="margin-bottom:14px;font-family:'Lora',serif;font-size:1.15rem">${remaining<=0 ? W.Many : `Choose a ${W.one}`}</h3>
       <div class="story-grid">${cardsHTML}</div>
     </div>`;
 
@@ -3113,7 +3253,7 @@ function renderStoryQuestion() {
 
   mc().innerHTML = `
     <div class="assignment-view">
-      <button class="back-btn" onclick="renderStoryPicker()">← Back to Stories</button>
+      <button class="back-btn" onclick="renderStoryPicker()">← Back to ${storyWords(curAssignment).Many}</button>
       <h2 style="font-family:'Lora',serif;margin-bottom:4px">${escapeHTML(story.title)}</h2>
       <p style="color:var(--ink3);font-size:.85rem;margin-bottom:16px">Question ${qIndex+1} of ${total}</p>
 
@@ -3123,24 +3263,20 @@ function renderStoryQuestion() {
 
       <details ${qIndex===0?"open":""}>
         <summary style="cursor:pointer;font-weight:600;font-size:.9rem;color:var(--ink2);margin-bottom:8px;user-select:none">
-          📄 Story Passage ${qIndex>0?"(click to expand)":""}
+          📄 ${story.background ? "Review and passage" : storyWords(curAssignment).One + " passage"} ${qIndex>0?"(click to expand)":""}
         </summary>
+        ${story.background ? `<div class="background-box">${escapeHTML(story.background).replace(/\n/g,"<br/>")}</div>` : ""}
         <div class="passage-box">${escapeHTML(story.passage).replace(/\n/g,"<br/>")}</div>
       </details>
 
       <div class="question-box" style="margin-top:16px">
-        <p class="question-label">Question ${qIndex+1}</p>
+        <p class="question-label">Question ${qIndex+1}${getCurrentQuestion().tier === "bonus" ? ' · <span class="bonus-label">Bonus (optional)</span>' : ""}</p>
         <p class="question-text">${escapeHTML(q.text)}</p>
       </div>
 
-      <div id="ai-feedback-area"></div>
-
-      <textarea id="student-answer" class="answer-area" placeholder="Type your answer here…"></textarea>
-
-      <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap" id="action-row">
-        <button class="btn btn-primary" id="submit-btn" onclick="handleSubmit('first')">Submit Answer</button>
-      </div>
+      <div id="qa-area"></div>
     </div>`;
+  renderAnswerArea();
 }
 
 window.nextStoryQuestion = () => {
@@ -3196,12 +3332,12 @@ function renderBranchPicker() {
 
   const canFinishStory = availableBranches.length === 0 || branchesOptional || remaining <= 0;
   const finishBtnLabel = remaining > 0 && branchesOptional
-    ? "Skip Branches & Finish Story"
-    : "Finish This Story →";
+    ? `Skip Branches & Finish ${storyWords(a).One}`
+    : `Finish This ${storyWords(a).One} →`;
 
   mc().innerHTML = `
     <div class="assignment-view">
-      <button class="back-btn" onclick="renderStoryPicker()">← Back to Stories</button>
+      <button class="back-btn" onclick="renderStoryPicker()">← Back to ${storyWords(curAssignment).Many}</button>
       <h2 style="font-family:'Lora',serif;margin-bottom:4px">Learn More: ${escapeHTML(currentStory.title || "")}</h2>
       <div class="journey-progress">${msg}</div>
       ${canFinishStory
@@ -3266,18 +3402,13 @@ function renderBranchQuestion() {
       </details>
 
       <div class="question-box" style="margin-top:16px">
-        <p class="question-label">Question ${qIndex+1}</p>
+        <p class="question-label">Question ${qIndex+1}${getCurrentQuestion().tier === "bonus" ? ' · <span class="bonus-label">Bonus (optional)</span>' : ""}</p>
         <p class="question-text">${escapeHTML(q.text)}</p>
       </div>
 
-      <div id="ai-feedback-area"></div>
-
-      <textarea id="student-answer" class="answer-area" placeholder="Type your answer here…"></textarea>
-
-      <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap" id="action-row">
-        <button class="btn btn-primary" id="submit-btn" onclick="handleSubmit('first')">Submit Answer</button>
-      </div>
+      <div id="qa-area"></div>
     </div>`;
+  renderAnswerArea();
 }
 
 window.nextBranchQuestion = () => {
@@ -3303,88 +3434,271 @@ window.finishStory = () => {
 };
 
 /* ═══════════════════════════════════════════════
-   SHARED ANSWER HANDLING (with autosave + live sync)
+   SHARED ANSWER HANDLING — graded tries, hints, score ring
+   The backend grades each try and keeps the official record (grades/…).
+   `session` holds a copy for this screen, resume, and the teacher's
+   existing response views.
 ═══════════════════════════════════════════════ */
-window.handleSubmit = async (mode, roundId) => {
-  const inputBox = mode === "first" ? $("student-answer") : $(`followup-answer-${roundId}`);
-  const answer   = inputBox.value.trim();
-  if (!answer) { toast("Please write an answer first.", true); return; }
+const MAX_HINTS = 3;
 
-  if (mode === "first") {
-    $("submit-btn").disabled = true;
-    inputBox.disabled = true;
+function getCurrentQuestion() {
+  let q;
+  if (curAssignment.type !== "branching") {
+    q = curAssignment.questions[qIndex];
   } else {
-    inputBox.disabled = true;
-    const btn = inputBox.parentElement.querySelector("button");
-    if (btn) { btn.disabled = true; btn.textContent = "Submitting…"; }
+    const s = curAssignment.stories.find(x => x.id === journey.currentStoryId);
+    q = journey.phase === "branch-questions"
+      ? s?.branches?.find(x => x.id === journey.currentBranchId)?.questions[qIndex]
+      : s?.questions[qIndex];
   }
+  return typeof q === "string" ? { text: q, maxRounds: 5 } : (q || {});
+}
 
-  const fbArea = $("ai-feedback-area");
-  const thinkingId = `thinking-${Date.now()}`;
-  fbArea.insertAdjacentHTML("beforeend",
-    `<div class="ai-response" id="${thinkingId}"><div class="ai-label">Tutor</div>
-     <div class="typing-dots"><span></span><span></span><span></span></div></div>`);
+/** Where the student is, in the form the backend expects. */
+function currentLoc() {
+  const isBranching = curAssignment.type === "branching";
+  return {
+    assignmentId: curAssignment.id,
+    storyId:  isBranching ? journey.currentStoryId : null,
+    branchId: isBranching && journey.phase === "branch-questions" ? journey.currentBranchId : null,
+    qIndex
+  };
+}
 
-  const rawFeedback = await getAIFeedback(answer);
-
-  let signal = "CONTINUE";
-  let cleanFeedback = rawFeedback;
-  if (rawFeedback.includes("[ADVANCE]")) {
-    signal = "ADVANCE";
-    cleanFeedback = rawFeedback.replace(/\[ADVANCE\]/g, "").trim();
-  } else if (rawFeedback.includes("[CONTINUE]")) {
-    cleanFeedback = rawFeedback.replace(/\[CONTINUE\]/g, "").trim();
+/** The questions (and their required-core count) for the passage, story or branch the student is in. */
+function currentScope() {
+  const a = curAssignment;
+  let list = a.questions || [], requiredCore = a.requiredCore;
+  if (a.type === "branching") {
+    const s = a.stories.find(x => x.id === journey.currentStoryId);
+    const b = journey.phase === "branch-questions" ? s?.branches?.find(x => x.id === journey.currentBranchId) : null;
+    list = (b || s)?.questions || [];
+    requiredCore = (b || s)?.requiredCore;
   }
+  list = list.map(q => typeof q === "string" ? { text: q } : q);
+  const coreIdx = list.map((q, i) => (q.tier || "core") === "core" ? i : -1).filter(i => i >= 0);
+  return { list, coreIdx, requiredCore: Math.min(requiredCore || coreIdx.length, coreIdx.length) };
+}
 
-  const thinkingEl = $(thinkingId);
-  if (thinkingEl) thinkingEl.remove();
-  fbArea.insertAdjacentHTML("beforeend",
-    `<div class="exchange-block">
-       <p class="student-prior-answer"><strong>Your answer:</strong> ${escapeHTML(answer)}</p>
-       <div class="ai-response"><div class="ai-label">Tutor</div><p>${escapeHTML(cleanFeedback).replace(/\n/g,"<br/>")}</p></div>
-     </div>`);
+/**
+ * Can the student skip the current question? Bonus: always. Core: only while
+ * enough other core questions remain to meet the required number.
+ */
+function skipRule() {
+  const sc = currentScope();
+  const isCore = sc.coreIdx.includes(qIndex);
+  if (!isCore) return { can: true, isCore };
+  const skippedCore = sc.coreIdx.filter(i => i !== qIndex &&
+    session.some(e => e.kind === "skip" && e.context === contextLabelAt(i))).length;
+  const stillAvailable = sc.coreIdx.length - skippedCore - 1;
+  return { can: stillAvailable >= sc.requiredCore, isCore, required: sc.requiredCore, total: sc.coreIdx.length };
+}
 
+function questionState() {
   const ctx = getCurrentContextLabel();
-  const qText = getCurrentQuestionText();
-  session.push({ context:ctx, question:qText, answer, feedback:cleanFeedback });
+  const entries = session.filter(s => s.context === ctx);
+  const tries = entries.filter(e => e.kind === "grade");
+  const counted = tries.filter(t => !t.flagged);
+  const target = getCurrentQuestion().target || 70;
+  const best = counted.reduce((m, t) => Math.max(m, t.score), 0);
+  return {
+    entries, tries, target, best,
+    last: tries[tries.length - 1],
+    legacy: entries.filter(e => !e.kind),   // tutor exchanges saved before grading existed
+    helps: entries.filter(e => e.kind === "hint" || e.kind === "explain"),
+    hintsUsed: entries.filter(e => e.kind === "hint").length,
+    explained: entries.some(e => e.kind === "explain"),
+    flagged: tries.some(t => t.flagged),
+    triesLeft: Math.max(0, MAX_ROUNDS_FOR_Q - tries.length)
+  };
+}
 
-  followUpRound++;
-  // ★ AUTOSAVE after every exchange (local progress + live teacher visibility)
-  await Promise.all([
-    saveProgress(),
-    savePartialResponse()
-  ]);
+function scoreRingSVG(score, target) {
+  const r = 42, c = 2 * Math.PI * r;
+  const met = score >= target;
+  const color = met ? "var(--accent)" : "#d97706";
+  const a = (target / 100) * 2 * Math.PI - Math.PI / 2;   // target tick angle (0 = top)
+  const tick = (rr) => `${50 + rr * Math.cos(a)},${50 + rr * Math.sin(a)}`;
+  return `<svg class="score-ring" viewBox="0 0 100 100" role="img" aria-label="Your score: ${score}%. Goal: ${target}%.">
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="var(--border)" stroke-width="9"/>
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round"
+      stroke-dasharray="${(score / 100) * c} ${c}" transform="rotate(-90 50 50)" style="transition:stroke-dasharray .6s ease"/>
+    <polyline points="${tick(35)} ${tick(49)}" stroke="var(--ink)" stroke-width="2" stroke-dasharray="2 1.5"/>
+    <text x="50" y="49" text-anchor="middle" class="score-ring-num">${score}%</text>
+    <text x="50" y="64" text-anchor="middle" class="score-ring-goal">goal ${target}%</text>
+  </svg>`;
+}
 
-  const forceAdvance = followUpRound >= MAX_ROUNDS_FOR_Q;
+/**
+ * Draws everything under the question: score + feedback, hints, the answer
+ * box (pre-filled so "add to my answer" builds on the last try), and buttons.
+ */
+function renderAnswerArea(draft) {
+  const area = $("qa-area");
+  if (!area) return;
+  const st = questionState();
+  const canFinish = st.flagged || st.best >= st.target || st.triesLeft === 0;
+  const sk = skipRule();
+  let html = "";
 
-  if (signal === "ADVANCE" || forceAdvance) {
-    const ar = $("action-row");
-    ar.innerHTML = `<button class="btn btn-primary" onclick="goNextQuestion()">Next Question →</button>`;
-    if (forceAdvance && signal !== "ADVANCE") {
-      ar.insertAdjacentHTML("afterbegin",
-        `<p style="color:var(--ink3);font-size:.85rem;margin-bottom:8px;width:100%">
-          You've explored this question well — let's move on.</p>`);
-    }
-    ar.scrollIntoView({behavior:"smooth", block:"center"});
-  } else {
-    if (mode === "first") {
-      inputBox.style.display = "none";
-      $("submit-btn").style.display = "none";
-    }
-    const newRoundId = followUpRound;
-    fbArea.insertAdjacentHTML("beforeend", `
-      <div class="followup-input-block">
-        <p class="followup-prompt">Develop your answer further based on the tutor's feedback:</p>
-        <textarea id="followup-answer-${newRoundId}" class="answer-area" placeholder="Type your next response here…"></textarea>
-        <button class="btn btn-primary mt-sm" onclick="handleSubmit('followup', ${newRoundId})">
-          Submit (round ${followUpRound + 1} of ${MAX_ROUNDS_FOR_Q})
-        </button>
-      </div>`);
-    setTimeout(() => {
-      const nb = $(`followup-answer-${newRoundId}`);
-      if (nb) { nb.focus(); nb.scrollIntoView({behavior:"smooth", block:"center"}); }
-    }, 100);
+  if (st.legacy.length) {
+    html += st.legacy.map(s => `<div class="exchange-block">
+      <p class="student-prior-answer"><strong>Your answer:</strong> ${escapeHTML(s.answer)}</p>
+      <div class="ai-response"><div class="ai-label">Tutor</div><p>${escapeHTML(s.feedback).replace(/\n/g,"<br/>")}</p></div>
+    </div>`).join("");
   }
+
+  if (st.flagged) {
+    html += `<div class="grade-panel care">
+      <div class="grade-feedback">
+        <p class="grade-headline">Thank you for being honest.</p>
+        <p>Your teacher reads these answers and will check in with you. If you want to talk to someone sooner, find a teacher or counselor you trust today.</p>
+        <p class="grade-sub">This question won't count against you.</p>
+      </div>
+    </div>`;
+  } else if (st.last) {
+    const met = st.best >= st.target;
+    const headline = met
+      ? (st.best >= 90 ? "Excellent work." : "You've reached the goal.")
+      : (st.last.connected ? "Good start — keep building." : "Let's connect this to the text.");
+    html += `<div class="grade-panel">
+      ${scoreRingSVG(st.best, st.target)}
+      <div class="grade-feedback">
+        <p class="grade-headline">${headline}</p>
+        ${st.tries.length > 1 && st.last.score !== st.best ? `<p class="grade-sub">Latest try: ${st.last.score}% · your best score counts.</p>` : ""}
+        <p><strong>What's working:</strong> ${escapeHTML(st.last.strength)}</p>
+        <p><strong>${met ? "To go further (optional)" : "Next step"}:</strong> ${escapeHTML(st.last.nextStep)}</p>
+      </div>
+    </div>`;
+  }
+
+  if (st.helps.length) {
+    html += `<div class="help-notes">${st.helps.map(h => `<div class="help-note">
+      <span class="help-note-label">${h.kind === "hint" ? `💡 Hint ${h.level}` : "❓ What the question means"}</span>
+      ${escapeHTML(h.text)}</div>`).join("")}</div>`;
+  }
+
+  const boxValue = draft != null ? draft : (st.last ? st.last.answer : "");
+  const outOfTries = st.triesLeft === 0;
+  // After a flag, the only next move is on: no answer box, no tries count.
+  if (st.flagged) {
+    html += `<div class="answer-actions" id="action-row">
+      <button class="btn btn-primary" onclick="goNextQuestion()">Continue →</button></div>`;
+    area.innerHTML = html;
+    return;
+  }
+  html += `
+    <textarea id="student-answer" class="answer-area" ${outOfTries ? "disabled" : ""}
+      placeholder="Type your answer here…">${escapeHTML(boxValue)}</textarea>
+    <p class="field-hint" id="tries-hint">${outOfTries
+      ? "You've used all your tries on this question."
+      : st.last
+        ? `Add to your answer or change it, then submit again. ${st.triesLeft} ${st.triesLeft === 1 ? "try" : "tries"} left — your best score counts.`
+        : `${st.triesLeft} ${st.triesLeft === 1 ? "try" : "tries"} on this question. You can ask for a hint any time.`}</p>
+    <div class="answer-actions" id="action-row">
+      ${outOfTries ? "" : `<button class="btn ${canFinish ? "btn-secondary" : "btn-primary"}" id="submit-btn" onclick="submitGradedAnswer()">
+        ${st.last ? "Submit my added answer" : "Submit answer"}</button>`}
+      ${st.flagged || outOfTries ? "" : `
+        <button class="btn btn-ghost" id="hint-btn" onclick="askForHelp('hint')" ${st.hintsUsed >= MAX_HINTS ? "disabled" : ""}>
+          💡 I need a hint ${st.hintsUsed ? `(${st.hintsUsed}/${MAX_HINTS})` : ""}</button>
+        <button class="btn btn-ghost" id="explain-btn" onclick="askForHelp('explain')" ${st.explained ? "disabled" : ""}>
+          ❓ What does the question mean?</button>`}
+      ${!canFinish && sk.can ? `<button class="btn btn-ghost" onclick="skipQuestion()">${sk.isCore
+          ? `Skip this one (${sk.required} of ${sk.total} core questions needed)` : "Skip this bonus question"}</button>` : ""}
+      ${canFinish ? `<button class="btn btn-primary" onclick="goNextQuestion()">I'm done — next →</button>` : ""}
+    </div>
+    ${outOfTries && st.best < st.target && !st.flagged
+      ? `<p class="grade-sub" style="margin-top:8px">Your best score (${st.best}%) is saved. Your teacher can see all your tries.</p>` : ""}`;
+
+  if (st.tries.length > 1) {
+    html += `<details class="earlier-tries"><summary>Earlier tries (${st.tries.length - 1})</summary>
+      ${st.tries.slice(0, -1).reverse().map((t, i) => `<div class="earlier-try">
+        <p class="grade-sub">Try ${st.tries.length - 1 - i}${t.flagged ? "" : ` · ${t.score}%`}</p>
+        <p class="student-prior-answer">${escapeHTML(t.answer)}</p>
+        ${t.flagged ? "" : `<p class="earlier-try-fb">${escapeHTML(t.nextStep)}</p>`}
+      </div>`).join("")}
+    </details>`;
+  }
+
+  area.innerHTML = html;
+}
+
+function setAnswerBusy(busy, label) {
+  ["submit-btn", "hint-btn", "explain-btn"].forEach(id => { const b = $(id); if (b) b.disabled = busy || b.disabled; });
+  const box = $("student-answer"); if (box) box.disabled = busy;
+  const hint = $("tries-hint");
+  if (hint && busy) hint.innerHTML = `<span class="typing-dots"><span></span><span></span><span></span></span> ${label}`;
+}
+
+window.submitGradedAnswer = async () => {
+  const box = $("student-answer");
+  const answer = (box?.value || "").trim();
+  if (!answer) { toast("Please write an answer first.", true); return; }
+  const st = questionState();
+  if (st.last && answer === st.last.answer.trim()) {
+    toast("Add something or change your answer before submitting again.", true); return;
+  }
+
+  setAnswerBusy(true, "Reading your answer…");
+  try {
+    const { grade } = await callBackend("submitAnswer", { ...currentLoc(), answer });
+    session.push({
+      kind: "grade",
+      context: getCurrentContextLabel(),
+      question: getCurrentQuestionText(),
+      answer,
+      score: grade.score, criteria: grade.criteria, connected: grade.connected,
+      wrongButReasoned: grade.wrongButReasoned, flagged: grade.flagged,
+      strength: grade.strength, nextStep: grade.nextStep,
+      // Teacher views and the Sheet read `feedback`.
+      tier: getCurrentQuestion().tier || "core",
+      feedback: grade.flagged ? "(Flagged for teacher follow-up — see email.)" : `${grade.score}% — ${grade.strength} Next: ${grade.nextStep}`
+    });
+    followUpRound = session.filter(s => s.context === getCurrentContextLabel() && s.kind === "grade").length;
+    await Promise.all([saveProgress(), savePartialResponse()]);
+    renderAnswerArea();
+    document.querySelector(".grade-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch(e) {
+    toast(e.message, true);
+    renderAnswerArea(answer);
+  }
+};
+
+window.skipQuestion = async () => {
+  const sk = skipRule();
+  if (!sk.can) return;
+  if (sk.isCore && !confirm(`Skip this question? You need ${sk.required} of ${sk.total} core questions, so you can skip this one.`)) return;
+  session.push({
+    kind: "skip",
+    context: getCurrentContextLabel(),
+    question: getCurrentQuestionText(),
+    tier: getCurrentQuestion().tier || "core",
+    answer: "",
+    feedback: "(Skipped)"
+  });
+  await Promise.all([saveProgress(), savePartialResponse()]);
+  goNextQuestion();
+};
+
+window.askForHelp = async (mode) => {
+  const draft = $("student-answer")?.value || "";
+  setAnswerBusy(true, mode === "hint" ? "Finding a hint…" : "Explaining the question…");
+  try {
+    const { text, level } = await callBackend("getHelp", { ...currentLoc(), mode, answer: draft });
+    session.push({
+      kind: mode, level,
+      context: getCurrentContextLabel(),
+      question: getCurrentQuestionText(),
+      answer: "",
+      text,
+      feedback: (mode === "hint" ? `💡 Hint ${level}: ` : "❓ Explained the question: ") + text
+    });
+    await Promise.all([saveProgress(), savePartialResponse()]);
+  } catch(e) {
+    toast(e.message, true);
+  }
+  renderAnswerArea(draft);
+  $("student-answer")?.focus();
 };
 
 window.goNextQuestion = () => {
@@ -3393,18 +3707,21 @@ window.goNextQuestion = () => {
   if (journey.phase === "branch-questions") return nextBranchQuestion();
 };
 
-function getCurrentContextLabel() {
-  if (curAssignment.type !== "branching") return`Q${qIndex+1}`;
+function getCurrentContextLabel() { return contextLabelAt(qIndex); }
+
+/** The session label for question i of the passage/story/branch the student is in. */
+function contextLabelAt(i) {
+  if (curAssignment.type !== "branching") return`Q${i+1}`;
   if (journey.phase === "story-questions") {
     const s = curAssignment.stories.find(x=>x.id===journey.currentStoryId);
-    return`Story: ${s?.title||""} — Q${qIndex+1}`;
+    return`Story: ${s?.title||""} — Q${i+1}`;
   }
   if (journey.phase === "branch-questions") {
     const currentStory = curAssignment.stories.find(x => x.id === journey.currentStoryId);
     const b = currentStory?.branches?.find(x => x.id === journey.currentBranchId);
-    return`Branch: ${b?.title||""} — Q${qIndex+1}`;
+    return`Branch: ${b?.title||""} — Q${i+1}`;
   }
-  return`Q${qIndex+1}`;
+  return`Q${i+1}`;
 }
 
 function getCurrentQuestionText() {
@@ -3424,86 +3741,43 @@ function getCurrentQuestionText() {
   return "";
 }
 
-async function getAIFeedback(studentAnswer, attempt = 1) {
-    const a = curAssignment;
-    let systemPrompt;
-    let passage;
-    let questionText = getCurrentQuestionText();
-
-    if (a.type !== "branching") {
-        systemPrompt = a.instructions || "";
-        passage = a.passage;
-    } else {
-        if (journey.phase === "story-questions") {
-            const s = curAssignment.stories.find(x => x.id === journey.currentStoryId);
-            systemPrompt = s.instructions || a.instructions || "";
-            passage = s.passage;
-        } else if (journey.phase === "branch-questions") {
-            const currentStory = curAssignment.stories.find(x => x.id === journey.currentStoryId);
-            const b = currentStory?.branches?.find(x => x.id === journey.currentBranchId);
-            systemPrompt = b.instructions || a.instructions || "";
-            passage = b.passage;
-        }
-    }
-
-    const currentCtx = getCurrentContextLabel();
-    const sameQ = session.filter(s => s.context === currentCtx);
-    const conversationHistory = sameQ.map(s => [
-        { role: "user", content: `Question: ${s.question}\nMy answer: ${s.answer}` },
-        { role: "assistant", content: s.feedback }
-    ]).flat();
-
-    conversationHistory.push({
-        role: "user",
-        content: `Passage:\n${passage}\n\nQuestion: ${questionText}\n\nMy answer: ${studentAnswer}`
+/**
+ * Final score for the student: the average best score on core questions they
+ * answered, plus up to 10 bonus points from bonus questions. Shown to the
+ * student; the official record for the teacher is the grades/ collection.
+ */
+function assignmentSummary() {
+  const a = curAssignment;
+  const given = [];   // { q, ctx } for every question the student was given
+  if (a.type !== "branching") {
+    (a.questions || []).forEach((q, i) => given.push({ q, ctx: `Q${i+1}` }));
+  } else {
+    // Same labels as contextLabelAt() uses for story questions.
+    (journey.storiesCompleted || []).forEach(id => {
+      const s = a.stories.find(x => x.id === id);
+      (s?.questions || []).forEach((q, i) => given.push({ q, ctx: `Story: ${s.title || ""} — Q${i+1}` }));
     });
-
-    try {
-        // followUpRound starts at 0 for the FIRST submission and increments after each.
-        // currentRound (1-indexed) = followUpRound + 1, since we're calling AI for round followUpRound+1.
-        const currentRound = followUpRound + 1;
-        const maxRounds = MAX_ROUNDS_FOR_Q || 5;
-        const isFinalRound = currentRound >= maxRounds;
- 
-        const resp = await fetch(APPS_SCRIPT_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({
-                action: "getAIFeedback",
-                systemPrompt,
-                messages: conversationHistory,
-                currentRound,
-                maxRounds,
-                isFinalRound
-            })
-        });
-        const data = await resp.json();
-
-        if (data.feedback) {
-            return data.feedback;
-        }
-
-        // feedback field missing or empty — retry once if first attempt
-        if (attempt === 1) {
-            console.warn("AI feedback empty on attempt 1, retrying...");
-            return getAIFeedback(studentAnswer, 2);
-        }
-
-        return "Thank you for your response. What else can you tell me about that?";
-
-    } catch (e) {
-        // fetch threw — retry once if first attempt
-        if (attempt === 1) {
-            console.warn("AI fetch failed on attempt 1, retrying...", e);
-            return getAIFeedback(studentAnswer, 2);
-        }
-
-        return "Great effort! What else can you tell me about that?";
-    }
+  }
+  const best = ctx => {
+    const t = session.filter(e => e.context === ctx && e.kind === "grade" && !e.flagged);
+    return t.length ? Math.max(...t.map(x => x.score)) : null;
+  };
+  const tierOf = q => (typeof q === "object" && q.tier) || "core";
+  const core = given.filter(x => tierOf(x.q) === "core").map(x => best(x.ctx)).filter(v => v !== null);
+  const bonusQs = given.filter(x => tierOf(x.q) === "bonus");
+  if (!core.length) return null;
+  const coreAvg = Math.round(core.reduce((m, v) => m + v, 0) / core.length);
+  const bonusBest = bonusQs.map(x => best(x.ctx) || 0);
+  const bonus = bonusQs.length ? Math.round(10 * bonusBest.reduce((m, v) => m + v, 0) / (100 * bonusQs.length)) : 0;
+  return {
+    total: Math.min(100, coreAvg + bonus), coreAvg, bonus,
+    coreDone: core.length, bonusDone: bonusBest.filter(v => v > 0).length, bonusTotal: bonusQs.length
+  };
 }
 
 window.completeAssignment = async () => {
   mc().innerHTML = `<div class="loading-spinner" style="margin-top:80px"></div>`;
+  const summary = assignmentSummary();
 
   const responseData = {
     assignmentId:    curAssignment.id,
@@ -3514,6 +3788,7 @@ window.completeAssignment = async () => {
     teacherId:       curAssignment.teacherId,
     session,
     journey: curAssignment.type === "branching" ? journey : null,
+    summary,
     isDraft:         false,
     submittedAt:     serverTimestamp(),
     lastSavedAt:     serverTimestamp()
@@ -3525,17 +3800,10 @@ window.completeAssignment = async () => {
 
   if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.startsWith("REPLACE")) {
     try {
-      await fetch(APPS_SCRIPT_URL, {
-        method:"POST",
-        headers:{"Content-Type":"text/plain;charset=utf-8"},
-        body: JSON.stringify({
-          action:"saveResponse",
-          assignmentTitle: curAssignment.title,
-          studentName:     user.displayName,
-          studentEmail:    user.email,
-          submittedAt:     new Date().toLocaleString(),
-          session
-        })
+      // Name, email and timestamp are taken from the verified token server-side.
+      await callBackend("saveResponse", {
+        assignmentTitle: curAssignment.title,
+        session
       });
     } catch(e) { console.warn("Sheets sync failed:", e); }
   }
@@ -3543,9 +3811,11 @@ window.completeAssignment = async () => {
   hideAutosavePill();
   mc().innerHTML = `
     <div class="completion-card">
-      <div class="completion-icon">🎉</div>
+      ${summary ? `<div style="display:flex;justify-content:center;margin-bottom:12px">${scoreRingSVG(summary.total, 70)}</div>` : `<div class="completion-icon">🎉</div>`}
       <h2>Assignment Complete!</h2>
       <p>Great work on <em>${escapeHTML(curAssignment.title)}</em>. Your responses have been saved and your teacher has been notified.</p>
+      ${summary ? `<p class="grade-sub" style="margin-top:-12px">Core questions: ${summary.coreAvg}% average (${summary.coreDone} answered)${summary.bonusTotal
+        ? ` · Bonus: +${summary.bonus} (${summary.bonusDone} of ${summary.bonusTotal} answered)` : ""}</p>` : ""}
       <button class="btn btn-primary" onclick="renderStudentHome()">← Back to My Assignments</button>
     </div>`;
 };
