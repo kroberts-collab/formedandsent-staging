@@ -522,6 +522,11 @@
   .grade-headline { font-family:'Lora',serif; font-size:1.08rem; font-weight:600; color:var(--ink); }
   .grade-sub { font-size:.82rem; color:var(--ink3); }
   .bonus-label { color:#d97706; }
+  .answer-so-far {
+    background:var(--bg); border-left:3px solid var(--accent2); border-radius:0 8px 8px 0;
+    padding:10px 14px; margin:12px 0 8px; font-size:.92rem; line-height:1.6;
+  }
+  .answer-so-far-label { font-size:.74rem; font-weight:700; color:var(--ink3); text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
   .help-notes { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
   .help-note {
     background:#fdfcf8; border:1px dashed #d4d0c5; border-radius:8px;
@@ -3000,6 +3005,7 @@ async function renderStudentHome() {
    STUDENT — START ASSIGNMENT (with resume check)
 ═══════════════════════════════════════════════ */
 window.startAssignment = async (assignmentId) => {
+  syncedQuestions.clear();   // re-check the server's try records for this assignment
   const snap = await getDoc(doc(db,"assignments",assignmentId));
   if (!snap.exists()) { toast("Assignment not found.", true); return; }
   curAssignment = { id: assignmentId, ...snap.data() };
@@ -3589,8 +3595,11 @@ function renderAnswerArea(draft) {
       ${escapeHTML(h.text)}</div>`).join("")}</div>`;
   }
 
-  const boxValue = draft != null ? draft : (st.last ? st.last.answer : "");
   const outOfTries = st.triesLeft === 0;
+  // After a try, students add to their answer by default: the last answer is
+  // locked and whatever they type is appended, so nothing gets lost.
+  const addOn = !!st.last && !editWholeAnswer;
+  const boxValue = draft != null ? draft : (addOn ? "" : (st.last ? st.last.answer : ""));
   // After a flag, the only next move is on: no answer box, no tries count.
   if (st.flagged) {
     html += `<div class="answer-actions" id="action-row">
@@ -3599,16 +3608,21 @@ function renderAnswerArea(draft) {
     return;
   }
   html += `
-    <textarea id="student-answer" class="answer-area" ${outOfTries ? "disabled" : ""}
-      placeholder="Type your answer here…">${escapeHTML(boxValue)}</textarea>
+    ${addOn ? `<div class="answer-so-far">
+      <p class="answer-so-far-label">Your answer so far</p>
+      <p>${escapeHTML(st.last.answer).replace(/\n/g, "<br/>")}</p>
+      ${outOfTries ? "" : `<button class="prompt-preview-toggle" onclick="setEditWholeAnswer(true)">Edit my whole answer instead</button>`}
+    </div>` : ""}
+    ${outOfTries ? "" : `<textarea id="student-answer" class="answer-area"
+      placeholder="${addOn ? "Add to your answer: what else can you point to, or explain?" : "Type your answer here…"}">${escapeHTML(boxValue)}</textarea>`}
     <p class="field-hint" id="tries-hint">${outOfTries
       ? "You've used all your tries on this question."
       : st.last
-        ? `Add to your answer or change it, then submit again. ${st.triesLeft} ${st.triesLeft === 1 ? "try" : "tries"} left — your best score counts.`
+        ? `${addOn ? "What you add will be joined to your answer above." : "You're editing your whole answer."} ${st.triesLeft} ${st.triesLeft === 1 ? "try" : "tries"} left — your best score counts.${!addOn ? ` <button class="prompt-preview-toggle" onclick="setEditWholeAnswer(false)">Just add to it instead</button>` : ""}`
         : `${st.triesLeft} ${st.triesLeft === 1 ? "try" : "tries"} on this question. You can ask for a hint any time.`}</p>
     <div class="answer-actions" id="action-row">
       ${outOfTries ? "" : `<button class="btn ${canFinish ? "btn-secondary" : "btn-primary"}" id="submit-btn" onclick="submitGradedAnswer()">
-        ${st.last ? "Submit my added answer" : "Submit answer"}</button>`}
+        ${st.last ? (addOn ? "Add to my answer" : "Submit my edited answer") : "Submit answer"}</button>`}
       ${st.flagged || outOfTries ? "" : `
         <button class="btn btn-ghost" id="hint-btn" onclick="askForHelp('hint')" ${st.hintsUsed >= MAX_HINTS ? "disabled" : ""}>
           💡 I need a hint ${st.hintsUsed ? `(${st.hintsUsed}/${MAX_HINTS})` : ""}</button>
@@ -3632,6 +3646,68 @@ function renderAnswerArea(draft) {
   }
 
   area.innerHTML = html;
+  syncTriesOnce();
+}
+
+/** Whether the student chose to rewrite their whole answer (reset for each question). */
+let editWholeAnswer = false;
+let editWholeFor = null;
+window.setEditWholeAnswer = (on) => {
+  editWholeAnswer = on;
+  editWholeFor = getCurrentContextLabel();
+  renderAnswerArea();
+  $("student-answer")?.focus();
+};
+
+/** The full answer to grade: in add-on mode, the last answer plus what they just typed. */
+function fullAnswerFromBox() {
+  const typed = ($("student-answer")?.value || "").trim();
+  const st = questionState();
+  if (st.last && !editWholeAnswer) return { typed, full: typed ? `${st.last.answer.trim()}\n\n${typed}` : "" };
+  return { typed, full: typed };
+}
+
+/** Same id the backend uses: grades/{uid}_{assignment}_{story~branch~q}. */
+function gradeDocId() {
+  const l = currentLoc();
+  const qKey = [l.storyId || "main", l.branchId || "-", Number(l.qIndex) || 0].join("~");
+  return `${user.uid}_${l.assignmentId}_${qKey.replace(/[^A-Za-z0-9_~-]/g, "")}`;
+}
+
+/**
+ * Replace this question's graded tries with the server's record. The server
+ * is the official count; the screen's copy can lag behind it.
+ */
+function applyServerTries(attempts) {
+  const ctx = getCurrentContextLabel();
+  const tier = getCurrentQuestion().tier || "core";
+  session = session.filter(e => !(e.context === ctx && e.kind === "grade"));
+  attempts.forEach(t => session.push({
+    kind: "grade", context: ctx, question: getCurrentQuestionText(), tier,
+    answer: t.answer, score: t.score, criteria: t.criteria, connected: t.connected,
+    wrongButReasoned: t.wrongButReasoned, flagged: t.flagged,
+    strength: t.strength, nextStep: t.nextStep,
+    feedback: t.flagged ? "(Flagged for teacher follow-up — see email.)" : `${t.score}% — ${t.strength} Next: ${t.nextStep}`
+  }));
+  followUpRound = attempts.length;
+}
+
+const syncedQuestions = new Set();
+async function syncTriesOnce() {
+  if (editWholeFor !== getCurrentContextLabel()) { editWholeAnswer = false; editWholeFor = null; }
+  const id = gradeDocId();
+  if (syncedQuestions.has(id)) return;
+  syncedQuestions.add(id);
+  try {
+    const snap = await getDoc(doc(db, "grades", id));
+    if (!snap.exists()) return;
+    const server = snap.data().attempts || [];
+    if (server.length !== questionState().tries.length && gradeDocId() === id) {
+      applyServerTries(server);
+      saveProgress();
+      renderAnswerArea();
+    }
+  } catch(e) { console.warn("Couldn't check saved tries:", e.message); }
 }
 
 function setAnswerBusy(busy, label) {
@@ -3642,36 +3718,30 @@ function setAnswerBusy(busy, label) {
 }
 
 window.submitGradedAnswer = async () => {
-  const box = $("student-answer");
-  const answer = (box?.value || "").trim();
-  if (!answer) { toast("Please write an answer first.", true); return; }
+  const { typed, full } = fullAnswerFromBox();
+  if (!typed) { toast(questionState().last ? "Type what you want to add first." : "Please write an answer first.", true); return; }
   const st = questionState();
-  if (st.last && answer === st.last.answer.trim()) {
+  if (st.last && full === st.last.answer.trim()) {
     toast("Add something or change your answer before submitting again.", true); return;
   }
 
   setAnswerBusy(true, "Reading your answer…");
   try {
-    const { grade } = await callBackend("submitAnswer", { ...currentLoc(), answer });
-    session.push({
-      kind: "grade",
-      context: getCurrentContextLabel(),
-      question: getCurrentQuestionText(),
-      answer,
-      score: grade.score, criteria: grade.criteria, connected: grade.connected,
-      wrongButReasoned: grade.wrongButReasoned, flagged: grade.flagged,
-      strength: grade.strength, nextStep: grade.nextStep,
-      // Teacher views and the Sheet read `feedback`.
-      tier: getCurrentQuestion().tier || "core",
-      feedback: grade.flagged ? "(Flagged for teacher follow-up — see email.)" : `${grade.score}% — ${grade.strength} Next: ${grade.nextStep}`
-    });
-    followUpRound = session.filter(s => s.context === getCurrentContextLabel() && s.kind === "grade").length;
+    const res = await callBackend("submitAnswer", { ...currentLoc(), answer: full });
+    // The server's record is the official list of tries (feedback, scores, count).
+    applyServerTries(res.attempts || []);
+    editWholeAnswer = false;
     await Promise.all([saveProgress(), savePartialResponse()]);
+    if (res.outOfTries) {
+      toast("You've already used all your tries on this question. Your best score is saved.");
+      renderAnswerArea();
+      return;
+    }
     renderAnswerArea();
     document.querySelector(".grade-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
   } catch(e) {
     toast(e.message, true);
-    renderAnswerArea(answer);
+    renderAnswerArea(typed);
   }
 };
 
@@ -3693,9 +3763,10 @@ window.skipQuestion = async () => {
 
 window.askForHelp = async (mode) => {
   const draft = $("student-answer")?.value || "";
+  const { full } = fullAnswerFromBox();
   setAnswerBusy(true, mode === "hint" ? "Finding a hint…" : "Explaining the question…");
   try {
-    const { text, level } = await callBackend("getHelp", { ...currentLoc(), mode, answer: draft });
+    const { text, level } = await callBackend("getHelp", { ...currentLoc(), mode, answer: full || questionState().last?.answer || "" });
     session.push({
       kind: mode, level,
       context: getCurrentContextLabel(),
