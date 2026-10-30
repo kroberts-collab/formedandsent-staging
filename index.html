@@ -501,6 +501,7 @@
     white-space:pre-wrap; word-break:break-all;
   }
 
+  .background-box-label { font-size:.75rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
   .background-box {
     background:#e8f4ee; border-radius:var(--radius); padding:14px 20px; margin-bottom:12px;
     font-size:.92rem; line-height:1.6; color:var(--ink);
@@ -1985,6 +1986,9 @@ function renderLinearForm(id, d, classes) {
       <label class="field-label">Reading Passage *</label>
       <textarea id="f-passage" class="field-textarea" rows="9" placeholder="Paste the article or passage here…">${escapeHTML(d.passage||'')}</textarea>
 
+      <label class="field-label">Background (optional)</label>
+      <textarea id="f-background" class="field-textarea" rows="4" placeholder="Shown to students in a green box above the passage, e.g. 'three things before you read'…">${escapeHTML(d.background||'')}</textarea>
+
       <label class="field-label">Questions <span style="color:var(--ink3);font-weight:400">(students answer each in turn)</span></label>
       <div id="q-container">
         ${normalized.map((q,i)=>linearQuestionRow(i,q.text,q.maxRounds,gradingExtras(q))).join("")}
@@ -2075,6 +2079,7 @@ window.saveLinear = async (existingId) => {
   const { classIds, classNames, studentTargets, studentTargetsHistorical } = readClassChecks();
   const payload = {
     type:"linear", title, passage,
+    background:   $("f-background")?.value.trim() || "",
     subject:      $("f-subject").value.trim(),
     questions:    qs,
     promptCfg,
@@ -2205,6 +2210,10 @@ function storyBlock(idx, s) {
 
       <label class="field-label">Passage *</label>
       <textarea class="field-textarea s-passage" rows="6" placeholder="Paste the story or passage…">${escapeHTML(s.passage || '')}</textarea>
+
+      <label class="field-label">Review text / background (optional)</label>
+      <textarea class="field-textarea s-background" rows="5" placeholder="Shown to students in a green box above the passage: review notes, or 'three things before you read'…">${escapeHTML(s.background || '')}</textarea>
+      <p class="field-hint">The AI tutor and grader also read this, so questions can say "using the review".</p>
 
       <label class="field-label">Questions</label>
       <div class="s-questions">
@@ -2375,6 +2384,7 @@ window.saveBranching = async (existingId) => {
     const sTitle = blk.querySelector(".s-title").value.trim();
     const sImage = blk.querySelector(".s-image").value.trim();
     const sPass = blk.querySelector(".s-passage").value.trim();
+    const sBackground = blk.querySelector(".s-background")?.value.trim() || "";
     const sInstr = blk.querySelector(".s-instructions").value.trim();
     if (!sTitle && !sPass) return;
 
@@ -2413,6 +2423,7 @@ window.saveBranching = async (existingId) => {
     stories.push({
       id: blk.dataset.id ||`s${Date.now()}_${stories.length}`,
       title: sTitle, imageUrl: sImage, passage: sPass, instructions: sInstr,
+      background: sBackground,
       branches,
       requiredBranches: storyReqBranches,
       questions: qs
@@ -3265,7 +3276,7 @@ function renderStoryQuestion() {
         <summary style="cursor:pointer;font-weight:600;font-size:.9rem;color:var(--ink2);margin-bottom:8px;user-select:none">
           📄 ${story.background ? "Review and passage" : storyWords(curAssignment).One + " passage"} ${qIndex>0?"(click to expand)":""}
         </summary>
-        ${story.background ? `<div class="background-box">${escapeHTML(story.background).replace(/\n/g,"<br/>")}</div>` : ""}
+        ${story.background ? `<div class="background-box">${curAssignment.storyWord === "section" ? `<p class="background-box-label">📝 Review</p>` : ""}${escapeHTML(story.background).replace(/\n/g,"<br/>")}</div>` : ""}
         <div class="passage-box">${escapeHTML(story.passage).replace(/\n/g,"<br/>")}</div>
       </details>
 
