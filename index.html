@@ -507,6 +507,10 @@
     font-size:.92rem; line-height:1.6; color:var(--ink);
   }
 
+  .list-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin-bottom:16px; font-size:.88rem; color:var(--ink2); }
+  .list-toolbar label { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  .list-toolbar .field-select { width:auto; max-width:100%; margin:0; }
+  .updated-at { font-size:.8rem; color:var(--ink3); align-self:center; }
   .export-option { border-top:1px solid var(--border); padding:14px 0; }
   .export-option h3 { font-size:1rem; margin-bottom:4px; }
   .export-option p { font-size:.88rem; color:var(--ink2); line-height:1.5; margin-bottom:10px; }
@@ -1877,6 +1881,7 @@ async function renderTeacherHome() {
         <button class="btn btn-primary" onclick="renderTypePicker()">+ New Assignment</button>
       </div>
     </div>
+    <div id="asgn-toolbar"></div>
     <div id="asgn-grid"><div class="loading-spinner"></div></div>`;
  
   const q = query(collection(db,"assignments"), where("teacherId","==",user.uid));
@@ -1903,16 +1908,90 @@ async function renderTeacherHome() {
     inProgressCounts[aid] = (inProgressCounts[aid] || 0) + 1;
   });
  
+  teacherAssignments = snp.docs.map(d => ({ id: d.id, a: d.data(), done: doneCounts[d.id] || 0, inProgress: inProgressCounts[d.id] || 0 }));
+  assignmentClassFilter = "";
+  renderAssignmentToolbar();
+  drawAssignmentGrid();
+}
+
+/* The list is kept in memory so sorting and filtering don't reload it. */
+let teacherAssignments = [];
+let assignmentClassFilter = "";
+const DRAFTS_FILTER = "__drafts__";
+
+const timeOf = ts => ts?.toDate?.()?.getTime() || 0;
+const compareText = (x, y) => x.localeCompare(y, undefined, { numeric: true, sensitivity: "base" });
+const firstClassOf = item => [...(item.a.classNames || [])].sort(compareText)[0] || "";
+
+const ASSIGNMENT_SORTS = {
+  newest:     { label: "Newest first",     compare: (x, y) => timeOf(y.a.createdAt) - timeOf(x.a.createdAt) },
+  oldest:     { label: "Oldest first",     compare: (x, y) => timeOf(x.a.createdAt) - timeOf(y.a.createdAt) },
+  edited:     { label: "Recently edited",  compare: (x, y) => timeOf(y.a.updatedAt) - timeOf(x.a.updatedAt) },
+  name:       { label: "Name (A–Z)",       compare: (x, y) => compareText(x.a.title || "", y.a.title || "") },
+  nameDesc:   { label: "Name (Z–A)",       compare: (x, y) => compareText(y.a.title || "", x.a.title || "") },
+  // Assignments with no class go last. One in several classes sorts by its first class alphabetically.
+  className:  { label: "Class",            compare: (x, y) => (!firstClassOf(x) - !firstClassOf(y)) || compareText(firstClassOf(x), firstClassOf(y)) },
+  done:       { label: "Most responses",   compare: (x, y) => y.done - x.done },
+  inProgress: { label: "Most in progress", compare: (x, y) => y.inProgress - x.inProgress },
+  drafts:     { label: "Drafts first",     compare: (x, y) => !!(x.a.classNames || []).length - !!(y.a.classNames || []).length }
+};
+
+function savedAssignmentSort() {
+  try { const v = localStorage.getItem("fs-assignment-sort"); return ASSIGNMENT_SORTS[v] ? v : "newest"; }
+  catch(_) { return "newest"; }
+}
+let assignmentSort = savedAssignmentSort();
+
+function renderAssignmentToolbar() {
+  const classes = [...new Set(teacherAssignments.flatMap(x => x.a.classNames || []))].sort(compareText);
+  const hasDrafts = teacherAssignments.some(x => !(x.a.classNames || []).length);
+  $("asgn-toolbar").innerHTML = `
+    <div class="list-toolbar">
+      <label>Sort by
+        <select class="field-select" onchange="setAssignmentSort(this.value)">
+          ${Object.entries(ASSIGNMENT_SORTS).map(([k, v]) => `<option value="${k}" ${k === assignmentSort ? "selected" : ""}>${v.label}</option>`).join("")}
+        </select>
+      </label>
+      <label>Show
+        <select class="field-select" onchange="setAssignmentClassFilter(this.value)">
+          <option value="">All classes</option>
+          ${classes.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join("")}
+          ${hasDrafts ? `<option value="${DRAFTS_FILTER}">Drafts (no class)</option>` : ""}
+        </select>
+      </label>
+      <span id="asgn-count"></span>
+    </div>`;
+}
+
+window.setAssignmentSort = value => {
+  assignmentSort = value;
+  try { localStorage.setItem("fs-assignment-sort", value); } catch(_) {}
+  drawAssignmentGrid();
+};
+window.setAssignmentClassFilter = value => { assignmentClassFilter = value; drawAssignmentGrid(); };
+
+function drawAssignmentGrid() {
+  const shown = teacherAssignments.filter(({ a }) => {
+    const classes = a.classNames || [];
+    if (!assignmentClassFilter) return true;
+    return assignmentClassFilter === DRAFTS_FILTER ? !classes.length : classes.includes(assignmentClassFilter);
+  });
+  // Ties fall back to newest, since sort() keeps the earlier order.
+  shown.sort(ASSIGNMENT_SORTS.newest.compare).sort(ASSIGNMENT_SORTS[assignmentSort].compare);
+
+  $("asgn-count").textContent = shown.length === teacherAssignments.length ? `${shown.length} assignment${shown.length === 1 ? "" : "s"}` : `Showing ${shown.length} of ${teacherAssignments.length}`;
+  const grid = $("asgn-grid");
+  if (!shown.length) {
+    grid.className = "";
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📄</div><p>No assignments match.</p></div>`;
+    return;
+  }
   grid.className = "card-grid";
-  grid.innerHTML = "";
-  snp.forEach(d => {
-    const a = d.data();
+  grid.innerHTML = shown.map(({ id, a, done, inProgress }) => {
     const isBranching = a.type === "branching";
     const summary = isBranching
       ? `${(a.stories||[]).length} stories · ${(a.branches||[]).length} learn-more options`
       : `${(a.questions||[]).length} questions`;
-    const done = doneCounts[d.id] || 0;
-    const inProgress = inProgressCounts[d.id] || 0;
     let respLine = "";
     if (done > 0 || inProgress > 0) {
       const parts = [];
@@ -1926,8 +2005,8 @@ async function renderTeacherHome() {
     const createdLine = created
       ? `<p class="card-meta">📅 ${created.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' })} · ${created.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}</p>`
       : "";
- 
-    grid.innerHTML += `
+
+    return `
       <div class="card">
         <div class="card-top">
           <span class="tag ${isBranching?'purple':''}">${isBranching ? '🌿 Branching' : (a.subject||'Linear')}</span>
@@ -1939,14 +2018,14 @@ async function renderTeacherHome() {
         ${createdLine}
         <p class="card-meta">Posted to: ${(a.classNames||[]).join(", ") || "No classes — <strong>hidden from students</strong> (draft)"}</p>
         <div class="card-actions">
-          <button class="btn btn-ghost" onclick="renderResponses('${d.id}','${a.title.replace(/'/g,"\\'")}')">📊 Responses</button>
-          <button class="btn btn-ghost" onclick="renderEditAssignment('${d.id}')">✏️ Edit</button>
-          <button class="btn btn-ghost" onclick="duplicateAssignment('${d.id}')">🔁 Duplicate</button>
-          <button class="btn btn-ghost" onclick="exportAssignmentXLSX('${d.id}')">📤 Export</button>
-          <button class="btn btn-danger btn-ghost" onclick="deleteAssignment('${d.id}')">🗑</button>
+          <button class="btn btn-ghost" onclick="renderResponses('${id}','${a.title.replace(/'/g,"\\'")}')">📊 Responses</button>
+          <button class="btn btn-ghost" onclick="renderEditAssignment('${id}')">✏️ Edit</button>
+          <button class="btn btn-ghost" onclick="duplicateAssignment('${id}')">🔁 Duplicate</button>
+          <button class="btn btn-ghost" onclick="exportAssignmentXLSX('${id}')">📤 Export</button>
+          <button class="btn btn-danger btn-ghost" onclick="deleteAssignment('${id}')">🗑</button>
         </div>
       </div>`;
-  });
+  }).join("");
 }
 
 window.renderTypePicker = () => {
@@ -2722,12 +2801,25 @@ function fetchWithTimeout(promise, ms, label) {
   ]);
 }
 
+function markResponsesUpdated() {
+  const el = $("resp-updated");
+  if (el) el.textContent = `Updated ${new Date().toLocaleTimeString([], { hour:"numeric", minute:"2-digit" })}`;
+}
+
+let responsesView = null;
+window.refreshResponses = () => renderResponses(responsesView.assignmentId, responsesView.title);
+
 window.renderResponses = async (assignmentId, title) => {
+  responsesView = { assignmentId, title };
   mc().innerHTML = `
     <button class="back-btn" onclick="renderTeacherHome()">← Back</button>
     <div class="page-header">
       <div><h1 class="page-title">Responses</h1><p class="page-sub">${escapeHTML(title||"")}</p></div>
-      <button class="btn btn-ghost" onclick="openExportModal('${assignmentId}')">⬇ Export &amp; grade</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="updated-at" id="resp-updated"></span>
+        <button class="btn btn-ghost" onclick="refreshResponses()">↻ Refresh</button>
+        <button class="btn btn-ghost" onclick="openExportModal('${assignmentId}')">⬇ Export &amp; grade</button>
+      </div>
     </div>
     <div id="resp-container"><div class="loading-spinner"></div></div>`;
 
@@ -2741,6 +2833,7 @@ window.renderResponses = async (assignmentId, title) => {
     );
 
     logDebug("renderResponses query done", { count: snp.size, empty: snp.empty });
+    markResponsesUpdated();
 
     const cont = $("resp-container");
     if (snp.empty) {
@@ -2790,6 +2883,10 @@ window.renderAllResponses = async () => {
   mc().innerHTML = `
     <div class="page-header">
       <div><h1 class="page-title">All Responses</h1><p class="page-sub">Across all your assignments</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="updated-at" id="resp-updated"></span>
+        <button class="btn btn-ghost" onclick="renderAllResponses()">↻ Refresh</button>
+      </div>
     </div>
     <div id="resp-container"><div class="loading-spinner"></div></div>`;
 
@@ -2831,6 +2928,7 @@ window.renderAllResponses = async () => {
     }
 
     debugInfo.push(`Found ${allResponses.length} total responses`);
+    markResponsesUpdated();
 
     if (allResponses.length === 0) {
       cont.innerHTML =`<div class="empty-state"><div class="empty-icon">📭</div><p>No responses yet.</p></div>`;
@@ -3205,6 +3303,21 @@ function parseAIText(text) {
 /* ── The Export & grade window ─────────────────── */
 let exportState = null;
 
+async function loadExportState(assignmentId) {
+  const where2 = name => getDocs(query(collection(db, name), where("teacherId", "==", user.uid), where("assignmentId", "==", assignmentId)));
+  const [aSnap, gradeSnap, respSnap] = await Promise.all([getDoc(doc(db, "assignments", assignmentId)), where2("grades"), where2("responses")]);
+  if (!aSnap.exists()) throw new Error("Assignment not found.");
+  const a = aSnap.data();
+  const table = await buildGradeTable(user.uid, a, assignmentId, gradeSnap.docs.map(d => d.data()), respSnap.docs.map(d => d.data()));
+  exportState = { assignmentId, a, table, base: exportFileBase(a.title) };
+  renderExportBody();
+}
+
+function createdLabel(a) {
+  const created = a.createdAt?.toDate?.();
+  return created ? `created ${created.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" })}, ${created.toLocaleTimeString([], { hour:"numeric", minute:"2-digit" })}` : "";
+}
+
 window.openExportModal = async (assignmentId) => {
   document.body.insertAdjacentHTML("beforeend", `
     <div class="modal-overlay" id="export-modal" onclick="if(event.target.id==='export-modal')closeExportModal()">
@@ -3215,13 +3328,7 @@ window.openExportModal = async (assignmentId) => {
       </div>
     </div>`);
   try {
-    const where2 = name => getDocs(query(collection(db, name), where("teacherId", "==", user.uid), where("assignmentId", "==", assignmentId)));
-    const [aSnap, gradeSnap, respSnap] = await Promise.all([getDoc(doc(db, "assignments", assignmentId)), where2("grades"), where2("responses")]);
-    if (!aSnap.exists()) throw new Error("Assignment not found.");
-    const a = aSnap.data();
-    const table = await buildGradeTable(user.uid, a, assignmentId, gradeSnap.docs.map(d => d.data()), respSnap.docs.map(d => d.data()));
-    exportState = { assignmentId, a, table, base: exportFileBase(a.title) };
-    renderExportBody();
+    await loadExportState(assignmentId);
   } catch(e) {
     console.error("export load error:", e);
     const body = $("export-body");
@@ -3231,9 +3338,10 @@ window.openExportModal = async (assignmentId) => {
 window.closeExportModal = () => { const m = $("export-modal"); if (m) m.remove(); exportState = null; };
 
 function renderExportBody() {
-  const { table } = exportState;
+  const { a, table } = exportState;
   const answered = table.students.filter(s => Object.values(s.cells).some(c => c.tries)).length;
   $("export-body").innerHTML = `
+    <p style="font-size:.95rem;margin-bottom:2px"><strong>${escapeHTML(a.title || "")}</strong>${createdLabel(a) ? ` · ${createdLabel(a)}` : ""}</p>
     <p style="color:var(--ink2);font-size:.9rem;margin-bottom:6px">${table.students.length} student${table.students.length === 1 ? "" : "s"} · ${answered} with graded answers · ${table.questions.length} questions</p>
     ${table.orphaned ? `<p class="field-hint">${table.orphaned} saved record${table.orphaned === 1 ? " is" : "s are"} for questions no longer in this assignment and won't be exported.</p>` : ""}
 
@@ -3289,7 +3397,8 @@ window.mergeAIResults = async (file) => {
     const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: false });
     // A saved chat reply can have prose around the CSV, so fall back to reading it as text.
-    mergeAIRows(parseAIResults(rows, exportState.table).ai.size ? rows : parseAIText(await file.text()));
+    const textRows = parseAIText(await file.text());
+    await mergeAIRows(parseAIResults(rows, exportState.table).ai.size || !textRows.length ? rows : textRows);
   } catch(e) {
     $("ai-merge-result").innerHTML = `<div class="import-error-list">${escapeHTML(e.message)}</div>`;
   }
@@ -3297,17 +3406,66 @@ window.mergeAIResults = async (file) => {
 
 /** Says which check stopped the merge, since each one has a different fix. */
 function noUsableRowsMessage(rows, problems) {
-  const { a, table } = exportState;
   if (!rows.length) return "No grade rows found. Each row should start with a student code and question ID, like S-1234ABCD,Q1,85,\"Feedback\".";
-  if (problems.unknownCode === rows.length) return `Found ${rows.length} grade rows, but none of their student codes belong to "${a.title || "this assignment"}", which has ${table.students.length} students. Codes are different for each assignment, so open the Responses page of the assignment you exported the no-names file from.`;
-  return `Found ${rows.length} grade rows, but none could be used: ${problems.unknownCode} with an unknown student code, ${problems.unknownQuestion} with an unknown question ID, ${problems.badScore} with a score that isn't 0–100.`;
+  return `Found ${rows.length} grade row${rows.length === 1 ? "" : "s"}, but none could be used: ${problems.unknownCode} with an unknown student code, ${problems.unknownQuestion} with an unknown question ID, ${problems.badScore} with a score that isn't 0–100.`;
 }
 
-function mergeAIRows(rows) {
+/** Codes are per assignment, so hashing each assignment's students shows which one a set of grades came from. */
+async function findAssignmentForCodes(codes) {
+  const wanted = new Set(codes);
+  const snap = await getDocs(query(collection(db, "grades"), where("teacherId", "==", user.uid)));
+  const studentsByAssignment = {};
+  snap.forEach(d => {
+    const g = d.data();
+    (studentsByAssignment[g.assignmentId] || (studentsByAssignment[g.assignmentId] = new Set())).add(g.studentId);
+  });
+  let best = null;
+  for (const [assignmentId, ids] of Object.entries(studentsByAssignment)) {
+    const found = Object.values(await studentCodes(user.uid, assignmentId, [...ids])).filter(c => wanted.has(c)).length;
+    if (found && (!best || found > best.found)) best = { assignmentId, found };
+  }
+  return best;
+}
+
+/** When every code belongs elsewhere, names the right assignment and offers to merge there. */
+async function offerMatchingAssignment(rows) {
+  const box = $("ai-merge-result");
+  box.innerHTML = `<p class="field-hint">These codes aren't from this assignment. Checking your other assignments…</p>`;
+  const codes = [...new Set(rows.map(r => getCol(r, "Student Code", "Code")))];
+  const match = await findAssignmentForCodes(codes);
+  if (!match) {
+    box.innerHTML = `<div class="import-error-list">Found ${rows.length} grade row${rows.length === 1 ? "" : "s"}, but their student codes don't match any assignment in this account. Check that you're signed in as the teacher who exported the no-names file.</div>`;
+    return;
+  }
+  const snap = await getDoc(doc(db, "assignments", match.assignmentId));
+  if (!snap.exists()) {
+    box.innerHTML = `<div class="import-error-list">Found ${rows.length} grade row${rows.length === 1 ? "" : "s"} from an assignment that has since been deleted, so its questions are gone and a gradebook can't be built from them.</div>`;
+    return;
+  }
+  const other = snap.data();
+  pendingAIRows = rows;
+  box.innerHTML = `<div class="import-error-list" style="margin-bottom:10px">These grades are from a different assignment${other.title === exportState.a.title ? " with the same name" : ""}: <strong>${escapeHTML(other.title || "Untitled")}</strong>${createdLabel(other) ? `, ${createdLabel(other)}` : ""}. ${match.found} of its student codes match.</div>
+    <button class="btn btn-primary" onclick="mergeIntoAssignment('${match.assignmentId}')">⬇ Merge with that assignment</button>`;
+}
+
+let pendingAIRows = null;
+window.mergeIntoAssignment = async (assignmentId) => {
+  const box = $("ai-merge-result");
+  try {
+    box.innerHTML = `<div class="loading-spinner"></div>`;
+    await loadExportState(assignmentId);
+    await mergeAIRows(pendingAIRows);
+  } catch(e) {
+    box.innerHTML = `<div class="import-error-list">${escapeHTML(e.message)}</div>`;
+  }
+};
+
+async function mergeAIRows(rows) {
   const box = $("ai-merge-result");
   try {
     const { a, table, base } = exportState;
     const { ai, problems } = parseAIResults(rows, table);
+    if (rows.length && problems.unknownCode === rows.length) return await offerMatchingAssignment(rows);
     if (!ai.size) throw new Error(noUsableRowsMessage(rows, problems));
     downloadCSV(`${base}_gradebook_with_AI_PRIVATE.csv`, gradebookRows(a, table, ai));
     const expected = aiFileRows(table).answers;
