@@ -3189,7 +3189,10 @@ function parseAIResults(rows, table) {
 function parseAIText(text) {
   const rowRe = /^\s*\|?\s*"?(S-[0-9A-F]+)"?\s*[,\t|]\s*"?(Q\d+)"?\s*[,\t|]\s*"?([^,\t|"]*?)"?\s*(?:[,\t|]\s*(.*?))?\s*\|?\s*$/i;
   const rows = [];
-  text.replace(/^﻿/, "").split(/\r?\n/).forEach(line => {
+  // Copying from a chat page can add invisible characters, unusual line breaks and look-alike hyphens.
+  const clean = text.replace(new RegExp("[\\u00AD\\u200B-\\u200F\\u202A-\\u202E\\u2060\\u2066-\\u2069\\uFEFF]", "g"), "")
+                   .replace(new RegExp("[\\u2010-\\u2015\\u2212]", "g"), "-");
+  clean.split(new RegExp("\\r\\n|[\\r\\n\\u0085\\u2028\\u2029]")).forEach(line => {
     const m = line.match(rowRe);
     if (!m) return;
     const quoted = (m[4] || "").match(/^"(.*)"$/);
@@ -3292,12 +3295,20 @@ window.mergeAIResults = async (file) => {
   }
 };
 
+/** Says which check stopped the merge, since each one has a different fix. */
+function noUsableRowsMessage(rows, problems) {
+  const { a, table } = exportState;
+  if (!rows.length) return "No grade rows found. Each row should start with a student code and question ID, like S-1234ABCD,Q1,85,\"Feedback\".";
+  if (problems.unknownCode === rows.length) return `Found ${rows.length} grade rows, but none of their student codes belong to "${a.title || "this assignment"}", which has ${table.students.length} students. Codes are different for each assignment, so open the Responses page of the assignment you exported the no-names file from.`;
+  return `Found ${rows.length} grade rows, but none could be used: ${problems.unknownCode} with an unknown student code, ${problems.unknownQuestion} with an unknown question ID, ${problems.badScore} with a score that isn't 0–100.`;
+}
+
 function mergeAIRows(rows) {
   const box = $("ai-merge-result");
   try {
     const { a, table, base } = exportState;
     const { ai, problems } = parseAIResults(rows, table);
-    if (!ai.size) throw new Error("No usable rows. The grades need Student Code, Question ID and AI Score, from this assignment's no-names file.");
+    if (!ai.size) throw new Error(noUsableRowsMessage(rows, problems));
     downloadCSV(`${base}_gradebook_with_AI_PRIVATE.csv`, gradebookRows(a, table, ai));
     const expected = aiFileRows(table).answers;
     const notes = [];
